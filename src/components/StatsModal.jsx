@@ -1,27 +1,9 @@
+import Modal from './Modal'
+
 export default function StatsModal({ isOpen, onClose, stats, guesses, onShare }) {
-  if (!isOpen) return null
-
-  const getEmojiPattern = () => {
-    if (guesses.length === 0) return ''
-    const lastGuess = guesses[guesses.length - 1]
-    return lastGuess.map(item => {
-      if (item.status === 'correct') return '🟩'
-      if (item.status === 'wrong-position') return '🟨'
-      return '🟥'
-    }).join('')
-  }
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-stone-900 rounded-lg p-8 max-w-md w-full mx-4 border border-stone-600">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-white text-2xl font-bold">Statistics</h2>
-          <button onClick={onClose} className="text-stone-400 hover:text-white text-2xl">
-            ×
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-6">
+    <Modal isOpen={isOpen} onClose={onClose} title="Statistics">
+      <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-stone-800 rounded p-4 text-center">
             <div className="text-3xl font-bold text-white">{guesses.length}</div>
             <div className="text-sm text-stone-400">Today's Guesses</div>
@@ -59,7 +41,6 @@ export default function StatsModal({ isOpen, onClose, stats, guesses, onShare })
             Share
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

@@ -4,16 +4,17 @@ import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import Toast from './components/Toast'
 import StatsModal from './components/StatsModal'
-import { initialNodes } from './data/initialNodes'
-
-// Mystery node IDs in order for scoreboard
-const MYSTERY_NODE_IDS = ['2', '6', '7']
+import SideDrawer from './components/SideDrawer'
+import PastDaysModal from './components/PastDaysModal'
+import AboutModal from './components/AboutModal'
+import LoadingSpinner from './components/LoadingSpinner'
 
 function App() {
-  const [nodes, setNodes] = useState(() => {
-    const saved = localStorage.getItem('nodes')
-    return saved ? JSON.parse(saved) : initialNodes
-  })
+  const [loading, setLoading] = useState(true)
+  const [dailyGameTitle, setDailyGameTitle] = useState('')
+  const [availableComponents, setAvailableComponents] = useState([])
+  const [nodes, setNodes] = useState([])
+  const [mysteryNodeIds, setMysteryNodeIds] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [guesses, setGuesses] = useState(() => {
     const saved = localStorage.getItem('guesses')
@@ -29,6 +30,9 @@ function App() {
   })
   const [toast, setToast] = useState(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [showPastDaysModal, setShowPastDaysModal] = useState(false)
+  const [showAboutModal, setShowAboutModal] = useState(false)
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('stats')
     return saved ? JSON.parse(saved) : {
@@ -38,6 +42,84 @@ function App() {
       totalGuesses: 0
     }
   })
+
+  // Fetch daily game on mount
+  useEffect(() => {
+    const fetchDailyGame = async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const cacheKey = `daily-game-${today}`
+
+      // Check localStorage first
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const gameData = JSON.parse(cached)
+
+        // Extract mystery node IDs from the game data
+        const mysteryIds = gameData.nodes
+          .filter(node => node.mystery)
+          .map(node => node.id)
+        setMysteryNodeIds(mysteryIds)
+
+        setDailyGameTitle(gameData.title)
+        setAvailableComponents(gameData.components)
+
+        // Check if user has saved progress for today
+        const savedNodes = localStorage.getItem('nodes')
+        const savedDate = localStorage.getItem('currentGameDate')
+
+        if (savedNodes && savedDate === today) {
+          // Load saved progress from today
+          const parsedNodes = JSON.parse(savedNodes)
+          setNodes(parsedNodes)
+        } else {
+          // New game, use fresh nodes and clear old progress
+          setNodes(gameData.nodes)
+          localStorage.setItem('currentGameDate', today)
+          localStorage.removeItem('guesses')
+          localStorage.removeItem('gameWon')
+          localStorage.removeItem('componentStatuses')
+        }
+
+        setLoading(false)
+        return
+      }
+
+      // Fetch from API
+      try {
+        const response = await fetch('/api/daily-game')
+        if (!response.ok) throw new Error('Failed to fetch daily game')
+
+        const gameData = await response.json()
+
+        // Cache the game data
+        localStorage.setItem(cacheKey, JSON.stringify(gameData))
+        localStorage.setItem('currentGameDate', today)
+
+        // Extract mystery node IDs from the game data
+        const mysteryIds = gameData.nodes
+          .filter(node => node.mystery)
+          .map(node => node.id)
+        setMysteryNodeIds(mysteryIds)
+
+        setDailyGameTitle(gameData.title)
+        setAvailableComponents(gameData.components)
+        setNodes(gameData.nodes)
+
+        // Clear old progress for new game
+        localStorage.removeItem('guesses')
+        localStorage.removeItem('gameWon')
+        localStorage.removeItem('componentStatuses')
+
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching daily game:', error)
+        setToast('Failed to load daily game. Please refresh.')
+        setLoading(false)
+      }
+    }
+
+    fetchDailyGame()
+  }, [])
 
   useEffect(() => {
     if (activeId) {
@@ -52,7 +134,10 @@ function App() {
   }, [guesses])
 
   useEffect(() => {
-    localStorage.setItem('nodes', JSON.stringify(nodes))
+    // Only save nodes if they exist (not empty array on initial load)
+    if (nodes.length > 0) {
+      localStorage.setItem('nodes', JSON.stringify(nodes))
+    }
   }, [nodes])
 
   useEffect(() => {
@@ -137,7 +222,7 @@ function App() {
     if (gameWon) return
 
     // Get the mystery nodes
-    const mysteryNodes = MYSTERY_NODE_IDS.map(id => nodes.find(n => n.id === id))
+    const mysteryNodes = mysteryNodeIds.map(id => nodes.find(n => n.id === id))
 
     // Check if all mystery nodes are filled
     const allFilled = mysteryNodes.every(node => node && node.label !== '???')
@@ -147,9 +232,11 @@ function App() {
       return
     }
 
-    // Get the correct answers for mystery nodes
-    const correctAnswers = MYSTERY_NODE_IDS.map(id => {
-      const correctNode = initialNodes.find(n => n.id === id)
+    // Get the correct answers for mystery nodes from the initial game data
+    const correctAnswers = mysteryNodeIds.map(id => {
+      const savedGameData = localStorage.getItem(`daily-game-${new Date().toISOString().split('T')[0]}`)
+      const gameData = JSON.parse(savedGameData)
+      const correctNode = gameData.nodes.find(n => n.id === id)
       return correctNode.label
     })
 
@@ -196,9 +283,9 @@ function App() {
     // Update nodes with status for visual feedback
     setNodes(prevNodes =>
       prevNodes.map(node => {
-        if (!MYSTERY_NODE_IDS.includes(node.id)) return node
+        if (!mysteryNodeIds.includes(node.id)) return node
 
-        const nodeIndex = MYSTERY_NODE_IDS.indexOf(node.id)
+        const nodeIndex = mysteryNodeIds.indexOf(node.id)
         const guessStatus = guess[nodeIndex].status
 
         return {
@@ -276,10 +363,22 @@ https://sysdle.com`
     setToast('Share message copied to clipboard!')
   }
 
+  if (loading) {
+    return (
+      <div className="h-screen bg-stone-800">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col-reverse lg:flex-row h-screen bg-stone-800">
-        <Sidebar getComponentStatus={getComponentStatus} />
+        <Sidebar
+          getComponentStatus={getComponentStatus}
+          onLogoClick={() => setShowDrawer(true)}
+          components={availableComponents}
+        />
         <Canvas
           nodes={nodes}
           onSubmit={handleSubmit}
@@ -289,6 +388,8 @@ https://sysdle.com`
             handleShare()
             setShowStatsModal(true)
           }}
+          onLogoClick={() => setShowDrawer(true)}
+          dailyGameTitle={dailyGameTitle}
         />
       </div>
       <DragOverlay>
@@ -308,6 +409,26 @@ https://sysdle.com`
         }}
         guesses={guesses}
         onShare={handleShare}
+      />
+      <SideDrawer
+        isOpen={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        onPastDaysClick={() => {
+          setShowDrawer(false)
+          setShowPastDaysModal(true)
+        }}
+        onAboutClick={() => {
+          setShowDrawer(false)
+          setShowAboutModal(true)
+        }}
+      />
+      <PastDaysModal
+        isOpen={showPastDaysModal}
+        onClose={() => setShowPastDaysModal(false)}
+      />
+      <AboutModal
+        isOpen={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
       />
     </DndContext>
   )

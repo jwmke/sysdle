@@ -8,7 +8,7 @@ const nodeTypes = {
   mystery: MysteryNode,
 }
 
-export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare }) {
+export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle }) {
   const reactFlowNodes = nodes.map(node => ({
     id: node.id,
     type: node.mystery || node.wasMystery ? 'mystery' : 'default',
@@ -31,7 +31,7 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare }) {
   return (
     <main className="flex-1 bg-stone-800 relative">
       <header className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-1/2 bg-stone-900 border-b rounded-b-2xl px-6 py-3">
-        <h1 className="text-white text-lg font-medium text-left">design x for 10m users</h1>
+        <h1 className="text-white text-lg font-medium text-left">{dailyGameTitle}</h1>
       </header>
       <ReactFlow
         nodes={reactFlowNodes}
@@ -43,7 +43,7 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare }) {
       >
         <Background />
       </ReactFlow>
-      <Logo />
+      <Logo onClick={onLogoClick} />
       <Scoreboard onSubmit={onSubmit} guesses={guesses} gameWon={gameWon} onShare={onShare} />
     </main>
   )
