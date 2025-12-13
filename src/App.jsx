@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import Toast from './components/Toast'
+import StatsModal from './components/StatsModal'
 import { initialNodes } from './data/initialNodes'
 
 // Mystery node IDs in order for scoreboard
@@ -27,6 +28,16 @@ function App() {
     return saved ? JSON.parse(saved) : {}
   })
   const [toast, setToast] = useState(null)
+  const [showStatsModal, setShowStatsModal] = useState(false)
+  const [stats, setStats] = useState(() => {
+    const saved = localStorage.getItem('stats')
+    return saved ? JSON.parse(saved) : {
+      currentStreak: 0,
+      maxStreak: 0,
+      totalGamesWon: 0,
+      totalGuesses: 0
+    }
+  })
 
   useEffect(() => {
     if (activeId) {
@@ -51,6 +62,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('componentStatuses', JSON.stringify(componentStatuses))
   }, [componentStatuses])
+
+  useEffect(() => {
+    localStorage.setItem('stats', JSON.stringify(stats))
+  }, [stats])
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id)
@@ -193,9 +208,23 @@ function App() {
       })
     )
 
-    // If all correct, mark game as won
+    // If all correct, mark game as won and update stats
     if (allCorrect) {
       setGameWon(true)
+      setStats(prev => {
+        const newTotalGamesWon = prev.totalGamesWon + 1
+        const newCurrentStreak = prev.currentStreak + 1
+        const newMaxStreak = Math.max(newCurrentStreak, prev.maxStreak)
+        const newTotalGuesses = prev.totalGuesses + guesses.length + 1
+
+        return {
+          currentStreak: newCurrentStreak,
+          maxStreak: newMaxStreak,
+          totalGamesWon: newTotalGamesWon,
+          totalGuesses: newTotalGuesses
+        }
+      })
+      setShowStatsModal(true)
     }
   }
 
@@ -218,11 +247,49 @@ function App() {
     return componentStatuses[componentLabel] || null
   }
 
+  const handleShare = () => {
+    const today = new Date()
+    const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+    const getEmojiMatrix = () => {
+      if (guesses.length === 0) return ''
+      return guesses.map(guess => {
+        return guess.map(item => {
+          if (item.status === 'correct') return '🟩'
+          if (item.status === 'wrong-position') return '🟨'
+          return '🟥'
+        }).join('')
+      }).join('\n')
+    }
+
+    const averageGuesses = stats.totalGamesWon > 0
+      ? Math.round(stats.totalGuesses / stats.totalGamesWon)
+      : 0
+
+    const shareText = `🔧 ${dateStr} 🔧
+🔥 ${stats.currentStreak} | Avg. Guesses: ${averageGuesses}
+${getEmojiMatrix()}
+
+https://sysdle.com`
+
+    navigator.clipboard.writeText(shareText)
+    setToast('Share message copied to clipboard!')
+  }
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col-reverse lg:flex-row h-screen">
+      <div className="flex flex-col-reverse lg:flex-row h-screen bg-stone-800">
         <Sidebar getComponentStatus={getComponentStatus} />
-        <Canvas nodes={nodes} onSubmit={handleSubmit} guesses={guesses} gameWon={gameWon} />
+        <Canvas
+          nodes={nodes}
+          onSubmit={handleSubmit}
+          guesses={guesses}
+          gameWon={gameWon}
+          onShare={() => {
+            handleShare()
+            setShowStatsModal(true)
+          }}
+        />
       </div>
       <DragOverlay>
         {activeId && (
@@ -232,6 +299,16 @@ function App() {
         )}
       </DragOverlay>
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      <StatsModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+        stats={{
+          ...stats,
+          averageGuesses: stats.totalGamesWon > 0 ? Math.round(stats.totalGuesses / stats.totalGamesWon) : 0
+        }}
+        guesses={guesses}
+        onShare={handleShare}
+      />
     </DndContext>
   )
 }

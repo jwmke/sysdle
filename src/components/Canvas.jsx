@@ -2,12 +2,13 @@ import { ReactFlow, Background } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import MysteryNode from './nodes/MysteryNode'
 import Scoreboard from './Scoreboard'
+import Logo from './Logo'
 
 const nodeTypes = {
   mystery: MysteryNode,
 }
 
-export default function Canvas({ nodes, onSubmit, guesses, gameWon }) {
+export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare }) {
   const reactFlowNodes = nodes.map(node => ({
     id: node.id,
     type: node.mystery || node.wasMystery ? 'mystery' : 'default',
@@ -29,17 +30,21 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon }) {
 
   return (
     <main className="flex-1 bg-stone-800 relative">
+      <header className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-1/2 bg-stone-900 border-b rounded-b-2xl px-6 py-3">
+        <h1 className="text-white text-lg font-medium text-left">design x for 10m users</h1>
+      </header>
       <ReactFlow
         nodes={reactFlowNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
         fitView
-        fitViewOptions={{ padding: 0.1 }}
+        fitViewOptions={{ padding: { top: 0.3, right: 0.1, bottom: 0.1, left: 0.1 } }}
       >
         <Background />
       </ReactFlow>
-      <Scoreboard onSubmit={onSubmit} guesses={guesses} gameWon={gameWon} />
+      <Logo />
+      <Scoreboard onSubmit={onSubmit} guesses={guesses} gameWon={gameWon} onShare={onShare} />
     </main>
   )
 }

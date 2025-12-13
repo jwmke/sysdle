@@ -1,4 +1,4 @@
-export default function Scoreboard({ onSubmit, guesses, gameWon }) {
+export default function Scoreboard({ onSubmit, guesses, gameWon, onShare }) {
   const MAX_GUESSES = 6
 
   const getBoxColor = (rowIndex, colIndex) => {
@@ -35,10 +35,10 @@ export default function Scoreboard({ onSubmit, guesses, gameWon }) {
         })}
       </div>
       <button
-        onClick={gameWon ? undefined : onSubmit}
+        onClick={gameWon ? onShare : onSubmit}
         className={`h-6 font-semibold text-xs rounded-sm transition-colors ${
           gameWon
-            ? 'bg-green-500 text-white cursor-default'
+            ? 'bg-green-500 text-white hover:bg-green-600 hover:cursor-pointer'
             : 'bg-stone-100 hover:bg-stone-200 hover:cursor-pointer'
         }`}
       >
