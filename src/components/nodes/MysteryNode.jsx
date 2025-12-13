@@ -4,6 +4,7 @@ import { useDroppable, useDraggable } from '@dnd-kit/core'
 export default function MysteryNode({ id, data }) {
   const isEmpty = data.label === '???'
   const isCorrect = data.isCorrect
+  const guessStatus = data.guessStatus
   const isDraggable = !isEmpty
 
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id })
@@ -28,11 +29,15 @@ export default function MysteryNode({ id, data }) {
   let textColor = 'text-white'
   let borderStyle = '2px dashed #000'
 
-  if (isCorrect === true) {
+  if (guessStatus === 'correct') {
     bgColor = 'bg-green-200'
     textColor = 'text-black'
     borderStyle = '2px solid #15803d'
-  } else if (isCorrect === false) {
+  } else if (guessStatus === 'wrong-position') {
+    bgColor = 'bg-yellow-200'
+    textColor = 'text-black'
+    borderStyle = '2px dashed #ca8a04'
+  } else if (guessStatus === 'incorrect') {
     bgColor = 'bg-red-200'
     textColor = 'text-black'
     borderStyle = '2px dashed #dc2626'
