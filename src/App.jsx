@@ -2,17 +2,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useState, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
-
-const initialNodes = [
-  { id: '1', label: 'User', position: { x: 250, y: 0 }, connectsTo: ['2'], mystery: false },
-  { id: '2', label: 'CDN', position: { x: 250, y: 80 }, connectsTo: ['3'], mystery: true },
-  { id: '3', label: 'Load Balancer', position: { x: 250, y: 160 }, connectsTo: ['4', '5'], mystery: false },
-  { id: '4', label: 'API Server', position: { x: 150, y: 260 }, connectsTo: ['6', '7', '8'], mystery: false },
-  { id: '5', label: 'API Server', position: { x: 350, y: 260 }, connectsTo: ['6', '7', '8'], mystery: false },
-  { id: '6', label: 'Cache', position: { x: 100, y: 380 }, connectsTo: [], mystery: true },
-  { id: '7', label: 'SQL DB', position: { x: 250, y: 380 }, connectsTo: [], mystery: true },
-  { id: '8', label: 'Object Storage', position: { x: 400, y: 380 }, connectsTo: [], mystery: false },
-]
+import { initialNodes } from './data/initialNodes'
 
 function App() {
   const [nodes, setNodes] = useState(initialNodes)
@@ -34,19 +24,59 @@ function App() {
   const handleDragEnd = (event) => {
     const { active, over } = event
     setActiveId(null)
-    
+
     if (!over) return
-    
-    const component = active.id
-    const nodeId = over.id
-    
-    setNodes(prevNodes =>
-      prevNodes.map(node =>
-        node.id === nodeId && (node.mystery || node.wasMystery)
-          ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined }
-          : node
+
+    const activeId = active.id
+    const targetNodeId = over.id
+
+    // Check if dragging from a node (node-to-node drag)
+    const isNodeDrag = activeId.startsWith('node-')
+
+    if (isNodeDrag) {
+      const sourceNodeId = activeId.replace('node-', '')
+
+      // Don't allow dragging to the same node
+      if (sourceNodeId === targetNodeId) return
+
+      setNodes(prevNodes => {
+        const sourceNode = prevNodes.find(n => n.id === sourceNodeId)
+        const targetNode = prevNodes.find(n => n.id === targetNodeId)
+
+        if (!sourceNode || !targetNode) return prevNodes
+
+        // Only allow dropping on mystery or wasMystery nodes
+        if (!targetNode.mystery && !targetNode.wasMystery) return prevNodes
+
+        const isTargetPopulated = targetNode.label !== '???'
+
+        return prevNodes.map(node => {
+          if (node.id === sourceNodeId) {
+            // If target is populated, swap; otherwise clear the source
+            return isTargetPopulated
+              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined }
+              : { ...node, label: '???', mystery: true, wasMystery: true, isCorrect: undefined }
+          }
+          // Update the target node
+          if (node.id === targetNodeId) {
+            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined }
+          }
+          return node
+        })
+      })
+    } else {
+      // Dragging from sidebar
+      const component = activeId
+
+      setNodes(prevNodes =>
+        prevNodes.map(node =>
+          node.id === targetNodeId && (node.mystery || node.wasMystery)
+            ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined }
+            : node
+        )
       )
-    )
+    }
+
     setIsSubmitted(false)
   }
 
@@ -65,6 +95,20 @@ function App() {
     setIsSubmitted(true)
   }
 
+  const getActiveLabel = () => {
+    if (!activeId) return null
+
+    // If dragging a node, find its label
+    if (activeId.startsWith('node-')) {
+      const nodeId = activeId.replace('node-', '')
+      const node = nodes.find(n => n.id === nodeId)
+      return node?.label
+    }
+
+    // Otherwise it's a sidebar component
+    return activeId
+  }
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col-reverse lg:flex-row h-screen">
@@ -74,7 +118,7 @@ function App() {
       <DragOverlay>
         {activeId && (
           <div className="bg-stone-600 p-3 rounded text-white text-sm text-center">
-            {activeId}
+            {getActiveLabel()}
           </div>
         )}
       </DragOverlay>

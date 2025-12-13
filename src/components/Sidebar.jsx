@@ -1,36 +1,5 @@
-import { useDraggable } from '@dnd-kit/core'
-
-const components = [
-  'Load Balancer',
-  'NoSQL DB',
-  'SQL DB',
-  'Cache',
-  'Message Queue',
-  'API Gateway',
-  'CDN',
-  'Auth Service',
-  'Object Storage',
-  'Search Engine'
-]
-
-function DraggableComponent({ component }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: component,
-  })
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`bg-stone-600 p-3 rounded text-white text-sm text-center cursor-grab active:cursor-grabbing ${
-        isDragging ? 'opacity-50' : ''
-      }`}
-    >
-      {component}
-    </div>
-  )
-}
+import DraggableComponent from './DraggableComponent'
+import { components } from '../data/components'
 
 export default function Sidebar({ onSubmit }) {
   return (

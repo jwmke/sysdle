@@ -1,43 +1,7 @@
-import { ReactFlow, Background, Handle, Position } from '@xyflow/react'
-import { useDroppable } from '@dnd-kit/core'
+import { ReactFlow, Background } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-
-function MysteryNode({ id, data }) {
-  const { setNodeRef, isOver } = useDroppable({ id })
-  const isEmpty = data.label === '???'
-  const isCorrect = data.isCorrect
-  
-  let bgColor = 'bg-stone-600'
-  let textColor = 'text-white'
-  let borderStyle = '2px dashed #000'
-  
-  if (isCorrect === true) {
-    bgColor = 'bg-green-200'
-    textColor = 'text-black'
-    borderStyle = '2px solid #15803d'
-  } else if (isCorrect === false) {
-    bgColor = 'bg-red-200'
-    textColor = 'text-black'
-    borderStyle = '2px dashed #dc2626'
-  } else if (!isEmpty) {
-    bgColor = 'bg-stone-400'
-    textColor = 'text-black'
-  }
-
-  return (
-    <>
-      <Handle type="target" position={Position.Top} />
-      <div
-        ref={setNodeRef}
-        className={`px-4 py-2 rounded text-center min-w-[150px] text-xs ${bgColor} ${textColor} ${isOver ? 'opacity-70' : ''}`}
-        style={{ border: borderStyle }}
-      >
-        {data.label}
-      </div>
-      <Handle type="source" position={Position.Bottom} />
-    </>
-  )
-}
+import MysteryNode from './nodes/MysteryNode'
+import Scoreboard from './Scoreboard'
 
 const nodeTypes = {
   mystery: MysteryNode,
@@ -63,9 +27,9 @@ export default function Canvas({ nodes }) {
   )
 
   return (
-    <main className="flex-1 bg-stone-800">
-      <ReactFlow 
-        nodes={reactFlowNodes} 
+    <main className="flex-1 bg-stone-800 relative">
+      <ReactFlow
+        nodes={reactFlowNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
@@ -74,6 +38,7 @@ export default function Canvas({ nodes }) {
       >
         <Background />
       </ReactFlow>
+      <Scoreboard />
     </main>
   )
 }
