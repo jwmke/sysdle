@@ -9,6 +9,15 @@ import PastDaysModal from './components/PastDaysModal'
 import AboutModal from './components/AboutModal'
 import LoadingSpinner from './components/LoadingSpinner'
 
+// Helper function to get today's date in YYYY-MM-DD format using local timezone
+const getLocalDateString = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function App() {
   const [loading, setLoading] = useState(true)
   const [dailyGameTitle, setDailyGameTitle] = useState('')
@@ -46,7 +55,7 @@ function App() {
   // Fetch daily game on mount
   useEffect(() => {
     const fetchDailyGame = async () => {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getLocalDateString()
       const cacheKey = `daily-game-${today}`
 
       // Check localStorage first
@@ -86,7 +95,7 @@ function App() {
 
       // Fetch from API
       try {
-        const response = await fetch('/api/daily-game')
+        const response = await fetch(`/api/daily-game?date=${today}`)
         if (!response.ok) throw new Error('Failed to fetch daily game')
 
         const gameData = await response.json()
@@ -234,7 +243,7 @@ function App() {
 
     // Get the correct answers for mystery nodes from the initial game data
     const correctAnswers = mysteryNodeIds.map(id => {
-      const savedGameData = localStorage.getItem(`daily-game-${new Date().toISOString().split('T')[0]}`)
+      const savedGameData = localStorage.getItem(`daily-game-${getLocalDateString()}`)
       const gameData = JSON.parse(savedGameData)
       const correctNode = gameData.nodes.find(n => n.id === id)
       return correctNode.label
