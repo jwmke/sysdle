@@ -41,28 +41,28 @@ function getDateString(daysOffset: number = 0): string {
   return `${year}-${month}-${day}`
 }
 
-// Check if two topics are too similar
-function areTopicsSimilar(topic1: string, topic2: string): boolean {
-  const similar = [
-    ['tiktok', 'youtube shorts', 'instagram reels', 'shorts'],
-    ['twitter', 'x', 'mastodon', 'threads'],
-    ['instagram', 'snapchat', 'facebook'],
-    ['uber', 'lyft', 'doordash', 'grubhub'],
-    ['netflix', 'youtube', 'twitch', 'spotify'],
-    ['whatsapp', 'telegram', 'signal', 'discord', 'slack'],
-    ['airbnb', 'booking.com', 'expedia'],
-  ]
+// Removed areTopicsSimilar - we'll let Claude handle variety based on the prompt
 
-  const t1 = topic1.toLowerCase()
-  const t2 = topic2.toLowerCase()
+// Check if nodes that are vertically close are properly spaced horizontally
+// Nodes within 50px vertically must be at least 150px apart horizontally to avoid corner overlap
+function hasOverlappingNodes(nodes: GeneratedPuzzle['nodes']): boolean {
+  // Check every pair of nodes
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const node1 = nodes[i]
+      const node2 = nodes[j]
 
-  for (const group of similar) {
-    const t1InGroup = group.some(keyword => t1.includes(keyword))
-    const t2InGroup = group.some(keyword => t2.includes(keyword))
-    if (t1InGroup && t2InGroup) return true
+      const yDiff = Math.abs(node1.position.y - node2.position.y)
+      const xDiff = Math.abs(node1.position.x - node2.position.x)
+
+      // If nodes are within 50px vertically, they must be at least 150px apart horizontally
+      if (yDiff <= 50 && xDiff < 150) {
+        return true // Found overlapping nodes
+      }
+    }
   }
 
-  return false
+  return false // No overlapping nodes
 }
 
 // Check if all nodes are reachable from the User node (no isolated islands)
@@ -175,7 +175,11 @@ Your task is to generate ONE daily puzzle. The puzzle consists of:
 IMPORTANT RULES:
 1. The title should be a popular real-world system or a common system design interview question
 2. DO NOT use these existing titles: ${existingTitles.join(', ')}
-3. Avoid topics similar to recent puzzles: ${recentTitles.join(', ')}
+3. CREATE VARIETY - Avoid systems similar to recent puzzles: ${recentTitles.join(', ')}
+   - If the recent puzzles include streaming services (Netflix, Spotify, YouTube), choose a different category entirely
+   - If recent puzzles include ride-sharing (Uber, Lyft), choose something completely different
+   - Pick from diverse categories: social media, e-commerce, infrastructure tools, messaging, content platforms, payment systems, search engines, etc.
+   - Think creatively and choose a system that feels fresh and different from recent puzzles
 4. Exactly 3 nodes should be mystery nodes (player must guess them)
 5. The 8 available components must include all 3 mystery node answers plus 5 decoys
 6. Components should be specific technical terms (e.g., "CDN", "Load Balancer", "Redis Cache", "PostgreSQL", "Kafka", "S3")
@@ -195,8 +199,11 @@ IMPORTANT RULES:
 
 Node positioning guidelines:
 - Use a vertical flow: User at top (y: 0), components below
-- Space nodes vertically by ~80-100px
-- Spread horizontally when branching (150-400px range on x-axis)
+- Space nodes vertically by ~80-100px between levels
+- **CRITICAL SPACING RULE**: If two nodes are within 50px of each other vertically (Y axis), they MUST be at least 150px apart horizontally (X axis) to avoid corner overlap
+  - Example: Node at (x=300, y=520) and node at (x=200, y=540) would overlap - they're only 20px apart vertically and 100px apart horizontally
+  - Solution: Place them at (x=100, y=520) and (x=300, y=540) - now 200px apart horizontally
+- When branching horizontally, spread nodes out widely (e.g., x=50, x=250, x=450)
 - Keep diagram balanced and readable
 
 Available component types to choose from:
@@ -222,10 +229,10 @@ Example puzzle structure (8 nodes - medium complexity):
     {"id": "2", "label": "CDN", "position": {"x": 250, "y": 80}, "connectsTo": ["3"], "mystery": true},
     {"id": "3", "label": "Load Balancer", "position": {"x": 250, "y": 160}, "connectsTo": ["4"], "mystery": false},
     {"id": "4", "label": "API Server", "position": {"x": 250, "y": 240}, "connectsTo": ["5", "6", "7"], "mystery": false},
-    {"id": "5", "label": "PostgreSQL", "position": {"x": 150, "y": 340}, "connectsTo": [], "mystery": true},
+    {"id": "5", "label": "PostgreSQL", "position": {"x": 100, "y": 340}, "connectsTo": [], "mystery": true},
     {"id": "6", "label": "Redis Cache", "position": {"x": 250, "y": 340}, "connectsTo": [], "mystery": false},
-    {"id": "7", "label": "S3", "position": {"x": 350, "y": 340}, "connectsTo": [], "mystery": true},
-    {"id": "8", "label": "Notification Service", "position": {"x": 150, "y": 240}, "connectsTo": ["5"], "mystery": false}
+    {"id": "7", "label": "S3", "position": {"x": 400, "y": 340}, "connectsTo": [], "mystery": true},
+    {"id": "8", "label": "Notification Service", "position": {"x": 100, "y": 240}, "connectsTo": ["5"], "mystery": false}
   ]
 }
 
@@ -251,13 +258,13 @@ Example puzzle structure (10 nodes - parallel branches pattern):
     {"id": "1", "label": "User", "position": {"x": 250, "y": 0}, "connectsTo": ["2"], "mystery": false},
     {"id": "2", "label": "CDN", "position": {"x": 250, "y": 80}, "connectsTo": ["3"], "mystery": true},
     {"id": "3", "label": "API Server", "position": {"x": 250, "y": 160}, "connectsTo": ["4", "5"], "mystery": false},
-    {"id": "4", "label": "Write Service", "position": {"x": 150, "y": 260}, "connectsTo": ["6", "7"], "mystery": false},
-    {"id": "5", "label": "Read Service", "position": {"x": 350, "y": 260}, "connectsTo": ["8", "9"], "mystery": false},
-    {"id": "6", "label": "PostgreSQL", "position": {"x": 100, "y": 360}, "connectsTo": ["10"], "mystery": true},
+    {"id": "4", "label": "Write Service", "position": {"x": 100, "y": 260}, "connectsTo": ["6", "7"], "mystery": false},
+    {"id": "5", "label": "Read Service", "position": {"x": 400, "y": 260}, "connectsTo": ["8", "9"], "mystery": false},
+    {"id": "6", "label": "PostgreSQL", "position": {"x": 50, "y": 360}, "connectsTo": ["10"], "mystery": true},
     {"id": "7", "label": "Kafka", "position": {"x": 200, "y": 360}, "connectsTo": ["10"], "mystery": false},
-    {"id": "8", "label": "Redis Cache", "position": {"x": 300, "y": 360}, "connectsTo": [], "mystery": false},
-    {"id": "9", "label": "S3", "position": {"x": 400, "y": 360}, "connectsTo": [], "mystery": true},
-    {"id": "10", "label": "Analytics Engine", "position": {"x": 150, "y": 460}, "connectsTo": [], "mystery": false}
+    {"id": "8", "label": "Redis Cache", "position": {"x": 350, "y": 360}, "connectsTo": [], "mystery": false},
+    {"id": "9", "label": "S3", "position": {"x": 500, "y": 360}, "connectsTo": [], "mystery": true},
+    {"id": "10", "label": "Analytics Engine", "position": {"x": 125, "y": 460}, "connectsTo": [], "mystery": false}
   ]
 }
 
@@ -269,12 +276,12 @@ Example puzzle structure (9 nodes - layered with feedback):
     {"id": "1", "label": "User", "position": {"x": 250, "y": 0}, "connectsTo": ["2"], "mystery": false},
     {"id": "2", "label": "Load Balancer", "position": {"x": 250, "y": 80}, "connectsTo": ["3"], "mystery": true},
     {"id": "3", "label": "API Server", "position": {"x": 250, "y": 160}, "connectsTo": ["4", "5"], "mystery": false},
-    {"id": "4", "label": "PostgreSQL", "position": {"x": 150, "y": 260}, "connectsTo": ["6"], "mystery": true},
-    {"id": "5", "label": "Redis Cache", "position": {"x": 350, "y": 260}, "connectsTo": [], "mystery": false},
-    {"id": "6", "label": "Kafka", "position": {"x": 150, "y": 360}, "connectsTo": ["7"], "mystery": false},
-    {"id": "7", "label": "ML Service", "position": {"x": 250, "y": 460}, "connectsTo": ["8"], "mystery": true},
-    {"id": "8", "label": "Model Storage", "position": {"x": 350, "y": 460}, "connectsTo": [], "mystery": false},
-    {"id": "9", "label": "Event Stream", "position": {"x": 50, "y": 360}, "connectsTo": ["7"], "mystery": false}
+    {"id": "4", "label": "PostgreSQL", "position": {"x": 100, "y": 260}, "connectsTo": ["6"], "mystery": true},
+    {"id": "5", "label": "Redis Cache", "position": {"x": 400, "y": 260}, "connectsTo": [], "mystery": false},
+    {"id": "6", "label": "Kafka", "position": {"x": 100, "y": 360}, "connectsTo": ["7"], "mystery": false},
+    {"id": "7", "label": "ML Service", "position": {"x": 200, "y": 460}, "connectsTo": ["8"], "mystery": true},
+    {"id": "8", "label": "Model Storage", "position": {"x": 400, "y": 460}, "connectsTo": [], "mystery": false},
+    {"id": "9", "label": "Event Stream", "position": {"x": 300, "y": 360}, "connectsTo": ["7"], "mystery": false}
   ]
 }
 
@@ -325,6 +332,11 @@ Generate a new puzzle now:`
           throw new Error('Puzzle has isolated nodes - all components must be connected to the User node')
         }
 
+        // Check for overlapping nodes
+        if (hasOverlappingNodes(puzzle.nodes)) {
+          throw new Error('Puzzle has overlapping nodes - nodes within 50px vertically must be at least 150px apart horizontally')
+        }
+
         // Check for duplicate title
         if (existingTitles.some(title =>
           title.toLowerCase() === puzzle.title.toLowerCase()
@@ -332,12 +344,7 @@ Generate a new puzzle now:`
           throw new Error('Generated puzzle has duplicate title')
         }
 
-        // Check for similar topics in recent puzzles
-        for (const recentTitle of recentTitles) {
-          if (areTopicsSimilar(puzzle.title, recentTitle)) {
-            throw new Error(`Generated puzzle is too similar to recent puzzle: ${recentTitle}`)
-          }
-        }
+        // No similarity checking - we trust Claude to follow the prompt instructions
 
         // Success! Break out of retry loop
         generatedPuzzle = puzzle

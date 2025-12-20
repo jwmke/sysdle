@@ -6,6 +6,7 @@ export default function MysteryNode({ id, data }) {
   const isCorrect = data.isCorrect
   const guessStatus = data.guessStatus
   const isDraggable = !isEmpty
+  const onNodeClick = data.onNodeClick
 
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id })
   const {
@@ -23,6 +24,13 @@ export default function MysteryNode({ id, data }) {
   const setNodeRef = (element) => {
     setDroppableRef(element)
     setDraggableRef(element)
+  }
+
+  const handleClick = (e) => {
+    // Trigger click handler for mobile
+    if (onNodeClick) {
+      onNodeClick(id)
+    }
   }
 
   let bgColor = 'bg-stone-600'
@@ -53,7 +61,8 @@ export default function MysteryNode({ id, data }) {
         ref={setNodeRef}
         {...(isDraggable ? listeners : {})}
         {...(isDraggable ? attributes : {})}
-        className={`px-3 mx-1 py-2.5 rounded text-center min-w-[142px] text-xs ${bgColor} ${textColor} ${isOver ? 'opacity-70' : ''} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-50' : ''}`}
+        onClick={handleClick}
+        className={`px-3 mx-1 py-2.5 rounded text-center min-w-[142px] text-xs ${bgColor} ${textColor} ${isOver ? 'opacity-70' : ''} ${isDraggable ? 'cursor-pointer lg:cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isDragging ? 'opacity-50' : ''}`}
         style={{ border: borderStyle }}
       >
         {data.label}

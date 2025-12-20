@@ -1,7 +1,7 @@
 import DraggableComponent from './DraggableComponent'
 import logo from '../assets/sysdle.svg'
 
-export default function Sidebar({ getComponentStatus, onLogoClick, components = [] }) {
+export default function Sidebar({ getComponentStatus, onLogoClick, components = [], onComponentClick, selectedComponent }) {
   return (
     <aside className="w-full h-auto lg:w-80 lg:h-full bg-stone-900 border-t lg:border-t-0 rounded-t-2xl lg:rounded-none p-4 lg:p-6 overflow-y-auto">
       {/* Logo - only visible on lg screens and larger */}
@@ -15,6 +15,8 @@ export default function Sidebar({ getComponentStatus, onLogoClick, components = 
             key={component}
             component={component}
             status={getComponentStatus(component)}
+            onClick={onComponentClick}
+            isSelected={selectedComponent === component}
           />
         ))}
       </div>

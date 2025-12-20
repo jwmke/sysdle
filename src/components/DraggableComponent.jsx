@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core'
 
-export default function DraggableComponent({ component, status }) {
+export default function DraggableComponent({ component, status, onClick, isSelected }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: component,
   })
@@ -17,14 +17,22 @@ export default function DraggableComponent({ component, status }) {
     return 'text-white'
   }
 
+  const handleClick = (e) => {
+    // Only trigger click on touch devices or when not dragging
+    if (onClick) {
+      onClick(component)
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`${getBackgroundColor()} ${getTextColor()} px-3 mx-1 py-2.5 rounded text-center min-w-[142px] text-xs cursor-grab active:cursor-grabbing ${
+      onClick={handleClick}
+      className={`${getBackgroundColor()} ${getTextColor()} px-3 mx-1 py-2.5 rounded text-center min-w-[142px] text-xs cursor-pointer lg:cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-50' : ''
-      }`}
+      } ${isSelected ? 'ring-4 ring-blue-400' : ''}`}
     >
       {component}
     </div>
