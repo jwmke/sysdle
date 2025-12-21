@@ -1,4 +1,4 @@
-import { DndContext, DragOverlay } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
@@ -37,6 +37,16 @@ function App() {
   const [mysteryNodeIds, setMysteryNodeIds] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [selectedComponent, setSelectedComponent] = useState(null)
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
+
+  // Configure DnD sensors - require 10px movement before drag starts
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 10, // Require 10px movement before drag activates
+      },
+    })
+  )
   const [guesses, setGuesses] = useState(() => {
     const saved = localStorage.getItem('guesses')
     return saved ? JSON.parse(saved) : []
@@ -276,21 +286,69 @@ function App() {
 
   const handleComponentClick = (component) => {
     setSelectedComponent(component)
+    setSelectedNodeId(null) // Clear node selection when selecting a component
   }
 
-  const handleNodeClick = (nodeId) => {
-    if (!selectedComponent) return
-
-    setNodes(prevNodes =>
-      prevNodes.map(node =>
-        node.id === nodeId && (node.mystery || node.wasMystery)
-          ? { ...node, label: selectedComponent, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
-          : node
+  const handleNodeClick = (nodeId, nodeLabel) => {
+    // If a component is selected from sidebar, place it on the node
+    if (selectedComponent) {
+      setNodes(prevNodes =>
+        prevNodes.map(node =>
+          node.id === nodeId && (node.mystery || node.wasMystery)
+            ? { ...node, label: selectedComponent, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+            : node
+        )
       )
-    )
+      setSelectedComponent(null)
+      return
+    }
 
-    // Clear selection after placing
-    setSelectedComponent(null)
+    // If a node is already selected, swap with it
+    if (selectedNodeId) {
+      const sourceNodeId = selectedNodeId
+
+      // Don't swap with itself
+      if (sourceNodeId === nodeId) {
+        setSelectedNodeId(null)
+        return
+      }
+
+      setNodes(prevNodes => {
+        const sourceNode = prevNodes.find(n => n.id === sourceNodeId)
+        const targetNode = prevNodes.find(n => n.id === nodeId)
+
+        if (!sourceNode || !targetNode) return prevNodes
+
+        // Only allow swapping on mystery or wasMystery nodes
+        if (!targetNode.mystery && !targetNode.wasMystery) return prevNodes
+
+        // Target is only considered populated if it's not a mystery node and has a label
+        const isTargetPopulated = !targetNode.mystery && targetNode.label !== '???'
+
+        return prevNodes.map(node => {
+          if (node.id === sourceNodeId) {
+            // If target is populated, swap; otherwise move (source becomes ???)
+            return isTargetPopulated
+              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+              : { ...node, label: '???', mystery: true, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+          }
+          if (node.id === nodeId) {
+            // Target always gets source's label
+            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+          }
+          return node
+        })
+      })
+
+      setSelectedNodeId(null)
+      return
+    }
+
+    // Otherwise, select this node if it's filled
+    if (nodeLabel !== '???') {
+      setSelectedNodeId(nodeId)
+      setSelectedComponent(null) // Clear component selection when selecting a node
+    }
   }
 
   const handleSubmit = () => {
@@ -520,7 +578,12 @@ https://sysdle.com`
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      autoScroll={false}
+    >
       <div className="flex flex-col-reverse lg:flex-row h-screen bg-stone-800">
         <Sidebar
           getComponentStatus={getComponentStatus}
@@ -541,6 +604,7 @@ https://sysdle.com`
           onLogoClick={() => setShowDrawer(true)}
           dailyGameTitle={dailyGameTitle}
           onNodeClick={handleNodeClick}
+          selectedNodeId={selectedNodeId}
         />
       </div>
       <DragOverlay>

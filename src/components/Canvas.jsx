@@ -8,7 +8,7 @@ const nodeTypes = {
   mystery: MysteryNode,
 }
 
-export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick }) {
+export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId }) {
   const reactFlowNodes = nodes.map(node => ({
     id: node.id,
     type: node.mystery || node.wasMystery ? 'mystery' : 'default',
@@ -17,7 +17,8 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
       label: node.mystery ? '???' : node.label,
       isCorrect: node.isCorrect,
       guessStatus: node.guessStatus,
-      onNodeClick: onNodeClick
+      onNodeClick: onNodeClick,
+      isSelected: selectedNodeId === node.id
     }
   }))
 
