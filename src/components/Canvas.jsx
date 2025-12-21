@@ -8,7 +8,7 @@ const nodeTypes = {
   mystery: MysteryNode,
 }
 
-export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle }) {
+export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId }) {
   const reactFlowNodes = nodes.map(node => ({
     id: node.id,
     type: node.mystery || node.wasMystery ? 'mystery' : 'default',
@@ -16,7 +16,9 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
     data: {
       label: node.mystery ? '???' : node.label,
       isCorrect: node.isCorrect,
-      guessStatus: node.guessStatus
+      guessStatus: node.guessStatus,
+      onNodeClick: onNodeClick,
+      isSelected: selectedNodeId === node.id
     }
   }))
 
@@ -39,7 +41,7 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
         fitView
-        fitViewOptions={{ padding: { top: 0.3, right: 0.1, bottom: 0.1, left: 0.1 } }}
+        fitViewOptions={{ padding: { top: 0.3, right: 0.1, bottom: 0.2, left: 0.1 } }}
       >
         <Background />
       </ReactFlow>

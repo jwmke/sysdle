@@ -25,13 +25,25 @@ export default async function handler(req, res) {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0]
+    // Get date from query parameter, or fallback to server's local date
+    let requestedDate = req.query.date
+    if (!requestedDate) {
+      const today = new Date()
+      const year = today.getFullYear()
+      const month = String(today.getMonth() + 1).padStart(2, '0')
+      const day = String(today.getDate()).padStart(2, '0')
+      requestedDate = `${year}-${month}-${day}`
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      return res.status(400).json({ error: 'Invalid date format. Expected YYYY-MM-DD' })
+    }
 
     const { data, error } = await supabase
       .from('daily_games')
       .select('*')
-      .eq('date', today)
+      .eq('date', requestedDate)
       .maybeSingle()
 
     if (error) {
@@ -40,10 +52,10 @@ export default async function handler(req, res) {
     }
 
     if (!data) {
-      console.log('No game found for date:', today)
+      console.log('No game found for date:', requestedDate)
       return res.status(404).json({
         error: 'No game found for today',
-        date: today,
+        date: requestedDate,
         hint: 'Please insert a game for this date in Supabase'
       })
     }

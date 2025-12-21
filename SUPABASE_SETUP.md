@@ -57,7 +57,21 @@ In your Vercel project settings, add these environment variables:
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_ANON_KEY`: Your Supabase anon/public key
 
-## 5. Data Structure
+## 5. Set Up Automated Puzzle Generation (Optional but Recommended)
+
+Instead of manually creating puzzles every day, you can set up automated puzzle generation using Claude AI:
+
+**See [CRON_SETUP.md](CRON_SETUP.md) for detailed instructions.**
+
+Quick summary:
+1. Get a Claude API key from https://console.anthropic.com
+2. Deploy the Edge Function that generates puzzles
+3. Set up a daily cron job in Supabase
+4. Puzzles are automatically generated 7 days in advance for review
+
+This costs about $0.30-0.60/month and saves you from creating puzzles manually.
+
+## 6. Data Structure
 
 Each daily game should have:
 - `date`: YYYY-MM-DD format (e.g., "2024-12-13")

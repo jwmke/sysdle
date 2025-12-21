@@ -1,0 +1,57 @@
+{
+  "title": "Design a URL Shortener",
+  "components": [
+    "CDN",
+    "Load Balancer",
+    "PostgreSQL",
+    "Redis Cache",
+    "Kafka",
+    "MongoDB",
+    "API Gateway",
+    "Rate Limiter"
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "label": "User",
+      "position": { "x": 250, "y": 0 },
+      "connectsTo": ["2"],
+      "mystery": false
+    },
+    {
+      "id": "2",
+      "label": "Load Balancer",
+      "position": { "x": 250, "y": 80 },
+      "connectsTo": ["3"],
+      "mystery": true
+    },
+    {
+      "id": "3",
+      "label": "API Server",
+      "position": { "x": 250, "y": 160 },
+      "connectsTo": ["4", "5"],
+      "mystery": false
+    },
+    {
+      "id": "4",
+      "label": "Redis Cache",
+      "position": { "x": 150, "y": 260 },
+      "connectsTo": [],
+      "mystery": true
+    },
+    {
+      "id": "5",
+      "label": "PostgreSQL",
+      "position": { "x": 350, "y": 260 },
+      "connectsTo": [],
+      "mystery": true
+    },
+    {
+      "id": "6",
+      "label": "Analytics Service",
+      "position": { "x": 250, "y": 340 },
+      "connectsTo": [],
+      "mystery": false
+    }
+  ]
+}

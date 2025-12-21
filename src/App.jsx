@@ -1,5 +1,5 @@
-import { DndContext, DragOverlay } from '@dnd-kit/core'
-import { useState, useEffect } from 'react'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import Toast from './components/Toast'
@@ -9,13 +9,44 @@ import PastDaysModal from './components/PastDaysModal'
 import AboutModal from './components/AboutModal'
 import LoadingSpinner from './components/LoadingSpinner'
 
+// Helper function to get today's date in YYYY-MM-DD format using local timezone
+const getLocalDateString = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Helper function to get yesterday's date in YYYY-MM-DD format
+const getYesterdayDateString = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const year = yesterday.getFullYear()
+  const month = String(yesterday.getMonth() + 1).padStart(2, '0')
+  const day = String(yesterday.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function App() {
+  const intervalRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [dailyGameTitle, setDailyGameTitle] = useState('')
   const [availableComponents, setAvailableComponents] = useState([])
   const [nodes, setNodes] = useState([])
   const [mysteryNodeIds, setMysteryNodeIds] = useState([])
   const [activeId, setActiveId] = useState(null)
+  const [selectedComponent, setSelectedComponent] = useState(null)
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
+
+  // Configure DnD sensors - require 10px movement before drag starts
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 10, // Require 10px movement before drag activates
+      },
+    })
+  )
   const [guesses, setGuesses] = useState(() => {
     const saved = localStorage.getItem('guesses')
     return saved ? JSON.parse(saved) : []
@@ -35,18 +66,27 @@ function App() {
   const [showAboutModal, setShowAboutModal] = useState(false)
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('stats')
-    return saved ? JSON.parse(saved) : {
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      // Add lastCompletedDate if it doesn't exist (backward compatibility)
+      if (!parsed.hasOwnProperty('lastCompletedDate')) {
+        parsed.lastCompletedDate = null
+      }
+      return parsed
+    }
+    return {
       currentStreak: 0,
       maxStreak: 0,
       totalGamesWon: 0,
-      totalGuesses: 0
+      totalGuesses: 0,
+      lastCompletedDate: null
     }
   })
 
   // Fetch daily game on mount
   useEffect(() => {
     const fetchDailyGame = async () => {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getLocalDateString()
       const cacheKey = `daily-game-${today}`
 
       // Check localStorage first
@@ -86,7 +126,7 @@ function App() {
 
       // Fetch from API
       try {
-        const response = await fetch('/api/daily-game')
+        const response = await fetch(`/api/daily-game?date=${today}`)
         if (!response.ok) throw new Error('Failed to fetch daily game')
 
         const gameData = await response.json()
@@ -151,6 +191,33 @@ function App() {
   useEffect(() => {
     localStorage.setItem('stats', JSON.stringify(stats))
   }, [stats])
+
+  // Check for date changes every 60 seconds (midnight reset)
+  useEffect(() => {
+    // Clear any existing interval first to prevent duplicates during HMR
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+
+    intervalRef.current = setInterval(() => {
+      const savedDate = localStorage.getItem('currentGameDate')
+      const currentDate = getLocalDateString()
+
+      if (savedDate && savedDate !== currentDate) {
+        // Date has changed - trigger reset
+        handleDateChange()
+      }
+    }, 60000) // Check every 60 seconds
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id)
@@ -217,6 +284,73 @@ function App() {
     }
   }
 
+  const handleComponentClick = (component) => {
+    setSelectedComponent(component)
+    setSelectedNodeId(null) // Clear node selection when selecting a component
+  }
+
+  const handleNodeClick = (nodeId, nodeLabel) => {
+    // If a component is selected from sidebar, place it on the node
+    if (selectedComponent) {
+      setNodes(prevNodes =>
+        prevNodes.map(node =>
+          node.id === nodeId && (node.mystery || node.wasMystery)
+            ? { ...node, label: selectedComponent, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+            : node
+        )
+      )
+      setSelectedComponent(null)
+      return
+    }
+
+    // If a node is already selected, swap with it
+    if (selectedNodeId) {
+      const sourceNodeId = selectedNodeId
+
+      // Don't swap with itself
+      if (sourceNodeId === nodeId) {
+        setSelectedNodeId(null)
+        return
+      }
+
+      setNodes(prevNodes => {
+        const sourceNode = prevNodes.find(n => n.id === sourceNodeId)
+        const targetNode = prevNodes.find(n => n.id === nodeId)
+
+        if (!sourceNode || !targetNode) return prevNodes
+
+        // Only allow swapping on mystery or wasMystery nodes
+        if (!targetNode.mystery && !targetNode.wasMystery) return prevNodes
+
+        // Target is only considered populated if it's not a mystery node and has a label
+        const isTargetPopulated = !targetNode.mystery && targetNode.label !== '???'
+
+        return prevNodes.map(node => {
+          if (node.id === sourceNodeId) {
+            // If target is populated, swap; otherwise move (source becomes ???)
+            return isTargetPopulated
+              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+              : { ...node, label: '???', mystery: true, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+          }
+          if (node.id === nodeId) {
+            // Target always gets source's label
+            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+          }
+          return node
+        })
+      })
+
+      setSelectedNodeId(null)
+      return
+    }
+
+    // Otherwise, select this node if it's filled
+    if (nodeLabel !== '???') {
+      setSelectedNodeId(nodeId)
+      setSelectedComponent(null) // Clear component selection when selecting a node
+    }
+  }
+
   const handleSubmit = () => {
     // If game is already won, do nothing
     if (gameWon) return
@@ -224,8 +358,8 @@ function App() {
     // Get the mystery nodes
     const mysteryNodes = mysteryNodeIds.map(id => nodes.find(n => n.id === id))
 
-    // Check if all mystery nodes are filled
-    const allFilled = mysteryNodes.every(node => node && node.label !== '???')
+    // Check if all mystery nodes are filled (mystery: false means user placed a component)
+    const allFilled = mysteryNodes.every(node => node && !node.mystery)
 
     if (!allFilled) {
       setToast('All nodes must be filled to submit a guess')
@@ -234,7 +368,7 @@ function App() {
 
     // Get the correct answers for mystery nodes from the initial game data
     const correctAnswers = mysteryNodeIds.map(id => {
-      const savedGameData = localStorage.getItem(`daily-game-${new Date().toISOString().split('T')[0]}`)
+      const savedGameData = localStorage.getItem(`daily-game-${getLocalDateString()}`)
       const gameData = JSON.parse(savedGameData)
       const correctNode = gameData.nodes.find(n => n.id === id)
       return correctNode.label
@@ -299,8 +433,24 @@ function App() {
     if (allCorrect) {
       setGameWon(true)
       setStats(prev => {
+        const today = getLocalDateString()
+        const yesterday = getYesterdayDateString()
+        const lastCompleted = prev.lastCompletedDate
+
+        // Determine if streak continues or resets
+        let newCurrentStreak
+        if (lastCompleted === yesterday) {
+          // Streak continues - completed yesterday
+          newCurrentStreak = prev.currentStreak + 1
+        } else if (lastCompleted === today) {
+          // Already completed today (shouldn't happen, but handle it)
+          newCurrentStreak = prev.currentStreak
+        } else {
+          // Streak broken - reset to 1
+          newCurrentStreak = 1
+        }
+
         const newTotalGamesWon = prev.totalGamesWon + 1
-        const newCurrentStreak = prev.currentStreak + 1
         const newMaxStreak = Math.max(newCurrentStreak, prev.maxStreak)
         const newTotalGuesses = prev.totalGuesses + guesses.length + 1
 
@@ -308,10 +458,66 @@ function App() {
           currentStreak: newCurrentStreak,
           maxStreak: newMaxStreak,
           totalGamesWon: newTotalGamesWon,
-          totalGuesses: newTotalGuesses
+          totalGuesses: newTotalGuesses,
+          lastCompletedDate: today
         }
       })
       setShowStatsModal(true)
+    }
+  }
+
+  const handleDateChange = async () => {
+    const today = getLocalDateString()
+
+    // Clear localStorage
+    localStorage.removeItem('guesses')
+    localStorage.removeItem('gameWon')
+    localStorage.removeItem('componentStatuses')
+    localStorage.removeItem('nodes')
+    localStorage.setItem('currentGameDate', today)
+
+    // Reset state
+    setGuesses([])
+    setGameWon(false)
+    setComponentStatuses({})
+
+    // Fetch new game
+    try {
+      const cacheKey = `daily-game-${today}`
+      const cached = localStorage.getItem(cacheKey)
+
+      if (cached) {
+        const gameData = JSON.parse(cached)
+        // Load the new game data
+        setNodes(gameData.nodes)
+        setDailyGameTitle(gameData.title)
+        setAvailableComponents(gameData.components)
+
+        const mysteryIds = gameData.nodes
+          .filter(node => node.mystery)
+          .map(node => node.id)
+        setMysteryNodeIds(mysteryIds)
+      } else {
+        // Fetch from API
+        const response = await fetch(`/api/daily-game?date=${today}`)
+        const gameData = await response.json()
+
+        localStorage.setItem(cacheKey, JSON.stringify(gameData))
+        setNodes(gameData.nodes)
+        setDailyGameTitle(gameData.title)
+        setAvailableComponents(gameData.components)
+
+        const mysteryIds = gameData.nodes
+          .filter(node => node.mystery)
+          .map(node => node.id)
+        setMysteryNodeIds(mysteryIds)
+      }
+
+      // Show notification
+      setToast('New daily puzzle available!')
+    } catch (error) {
+      console.error('Error loading new daily game:', error)
+      setToast('Failed to load new puzzle. Please refresh.')
     }
   }
 
@@ -372,12 +578,19 @@ https://sysdle.com`
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      autoScroll={false}
+    >
       <div className="flex flex-col-reverse lg:flex-row h-screen bg-stone-800">
         <Sidebar
           getComponentStatus={getComponentStatus}
           onLogoClick={() => setShowDrawer(true)}
           components={availableComponents}
+          onComponentClick={handleComponentClick}
+          selectedComponent={selectedComponent}
         />
         <Canvas
           nodes={nodes}
@@ -390,6 +603,8 @@ https://sysdle.com`
           }}
           onLogoClick={() => setShowDrawer(true)}
           dailyGameTitle={dailyGameTitle}
+          onNodeClick={handleNodeClick}
+          selectedNodeId={selectedNodeId}
         />
       </div>
       <DragOverlay>
