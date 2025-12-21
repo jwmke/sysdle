@@ -32,15 +32,20 @@ export default async function handler(req, res) {
       .from('daily_games')
       .select('*')
       .eq('date', today)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Supabase error:', error)
-      return res.status(500).json({ error: 'Failed to fetch daily game' })
+      return res.status(500).json({ error: 'Failed to fetch daily game', details: error.message })
     }
 
     if (!data) {
-      return res.status(404).json({ error: 'No game found for today' })
+      console.log('No game found for date:', today)
+      return res.status(404).json({
+        error: 'No game found for today',
+        date: today,
+        hint: 'Please insert a game for this date in Supabase'
+      })
     }
 
     return res.status(200).json({
