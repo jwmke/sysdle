@@ -1,5 +1,5 @@
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import Toast from './components/Toast'
@@ -41,9 +41,16 @@ function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [componentInfoMap, setComponentInfoMap] = useState({})
 
-  // Configure DnD sensors
+  // Configure DnD sensors with delay activation
+  // This allows quick clicks (< 150ms) to trigger onClick
+  // while holding longer triggers drag
   const sensors = useSensors(
-    useSensor(PointerSensor)
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 5,
+      },
+    })
   )
   const [guesses, setGuesses] = useState(() => {
     const saved = localStorage.getItem('guesses')
@@ -226,11 +233,11 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleDragStart = (event) => {
+  const handleDragStart = useCallback((event) => {
     setActiveId(event.active.id)
-  }
+  }, [])
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = useCallback((event) => {
     const { active, over } = event
     setActiveId(null)
 
@@ -289,14 +296,14 @@ function App() {
         )
       )
     }
-  }
+  }, [])
 
-  const handleComponentClick = (component) => {
+  const handleComponentClick = useCallback((component) => {
     setSelectedComponent(component)
     setSelectedNodeId(null) // Clear node selection when selecting a component
-  }
+  }, [])
 
-  const handleNodeClick = (nodeId, nodeLabel) => {
+  const handleNodeClick = useCallback((nodeId, nodeLabel) => {
     // If a component is selected from sidebar, place it on the node
     if (selectedComponent) {
       setNodes(prevNodes =>
@@ -356,7 +363,7 @@ function App() {
       setSelectedNodeId(nodeId)
       setSelectedComponent(null) // Clear component selection when selecting a node
     }
-  }
+  }, [selectedComponent, selectedNodeId])
 
   const handleSubmit = () => {
     // If game is already won, do nothing
@@ -598,6 +605,7 @@ https://sysdle.com`
           components={availableComponents}
           onComponentClick={handleComponentClick}
           selectedComponent={selectedComponent}
+          componentInfoMap={componentInfoMap}
         />
         <Canvas
           nodes={nodes}

@@ -44,20 +44,7 @@ export async function fetchComponentInfo() {
         link: item.docs_link || item.wiki_link,
         aliases: item.aliases || []
       }
-
-      // Debug logging for horizontal-cylinder components
-      if (item.node_shape === 'horizontal-cylinder') {
-        console.log('=== HORIZONTAL-CYLINDER COMPONENT FOUND ===')
-        console.log('component_name:', item.component_name)
-        console.log('node_shape:', item.node_shape)
-        console.log('Mapped shape:', infoMap[item.component_name].shape)
-        console.log('Full item:', item)
-      }
     })
-
-    console.log('=== COMPONENT INFO MAP BUILT ===')
-    console.log('Total components:', Object.keys(infoMap).length)
-    console.log('All keys:', Object.keys(infoMap))
 
     componentInfoCache = infoMap
     return infoMap

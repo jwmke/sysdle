@@ -190,7 +190,12 @@ IMPORTANT RULES:
    - Complex systems (11-15 nodes): Netflix, Uber, distributed systems with multiple data stores
 9. Distribute mystery nodes strategically throughout the architecture (not all at the bottom)
 10. **CRITICAL**: ALL nodes must be connected - no isolated islands! Every node must be reachable from the User node
-11. **VARY THE DIAGRAM SHAPE**: Don't always pyramid out. Use different architectural patterns:
+11. **BIDIRECTIONAL CONNECTIONS SUPPORTED**: Nodes can connect to each other bidirectionally (A connects to B AND B connects to A). Use this for:
+    - Cache synchronization (App Server <-> Redis Cache)
+    - Pub/Sub systems (Service <-> Message Queue)
+    - Database replication (Primary DB <-> Replica DB)
+    - Microservice communication (Service A <-> Service B)
+12. **VARY THE DIAGRAM SHAPE**: Don't always pyramid out. Use different architectural patterns:
     - Fan-out then converge (e.g., multiple services -> message queue -> workers -> shared DB)
     - Parallel branches (e.g., read path vs write path)
     - Layered architecture (e.g., CDN -> LB -> App -> Cache + DB -> Analytics)
@@ -282,6 +287,21 @@ Example puzzle structure (9 nodes - layered with feedback):
     {"id": "7", "label": "ML Service", "position": {"x": 200, "y": 460}, "connectsTo": ["8"], "mystery": true},
     {"id": "8", "label": "Model Storage", "position": {"x": 400, "y": 460}, "connectsTo": [], "mystery": false},
     {"id": "9", "label": "Event Stream", "position": {"x": 300, "y": 360}, "connectsTo": ["7"], "mystery": false}
+  ]
+}
+
+Example puzzle structure (7 nodes - with bidirectional connections):
+{
+  "title": "Design a Real-time Chat App",
+  "components": ["Load Balancer", "PostgreSQL", "Redis Cache", "WebSocket Server", "Message Queue", "CDN", "Cassandra", "S3"],
+  "nodes": [
+    {"id": "1", "label": "User", "position": {"x": 250, "y": 0}, "connectsTo": ["2"], "mystery": false},
+    {"id": "2", "label": "Load Balancer", "position": {"x": 250, "y": 80}, "connectsTo": ["3"], "mystery": true},
+    {"id": "3", "label": "WebSocket Server", "position": {"x": 250, "y": 160}, "connectsTo": ["4", "5"], "mystery": false},
+    {"id": "4", "label": "Redis Cache", "position": {"x": 150, "y": 260}, "connectsTo": ["3"], "mystery": true},
+    {"id": "5", "label": "Message Queue", "position": {"x": 350, "y": 260}, "connectsTo": ["6"], "mystery": false},
+    {"id": "6", "label": "PostgreSQL", "position": {"x": 350, "y": 360}, "connectsTo": ["5"], "mystery": true},
+    {"id": "7", "label": "Presence Service", "position": {"x": 150, "y": 360}, "connectsTo": ["4"], "mystery": false}
   ]
 }
 

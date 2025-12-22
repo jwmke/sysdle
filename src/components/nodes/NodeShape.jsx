@@ -2,7 +2,7 @@
 // All shapes maintain the same form factor (wide and short) to prevent layout issues
 
 export default function NodeShape({ shape = 'rectangle', bgColor, textColor, borderStyle, children, className = '' }) {
-  const baseClasses = `px-3 mx-1 py-2.5 text-center min-w-[142px] text-xs ${bgColor} ${textColor} ${className}`
+  const baseClasses = `px-3 mx-1 py-2.5 text-center min-w-[142px] max-w-[150px] text-xs ${bgColor} ${textColor} ${className}`
 
   // Extract border color and style from borderStyle (e.g., "2px solid #000" -> "#000")
   const borderColor = borderStyle?.split(' ').pop() || '#000'
@@ -158,8 +158,11 @@ function getBgColor(bgColorClass) {
     'bg-stone-600': '#57534e',
     'bg-stone-700': '#44403c',
     'bg-green-200': '#bbf7d0',
+    'bg-green-300': '#86efac',
     'bg-yellow-200': '#fef08a',
-    'bg-red-200': '#fecaca'
+    'bg-yellow-300': '#fde047',
+    'bg-red-200': '#fecaca',
+    'bg-red-300': '#fca5a5'
   }
   return colorMap[bgColorClass] || '#57534e'
 }

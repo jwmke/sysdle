@@ -1,5 +1,6 @@
 import { ReactFlow, Background } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { useMemo } from 'react'
 import MysteryNode from './nodes/MysteryNode'
 import Scoreboard from './Scoreboard'
 import Logo from './Logo'
@@ -10,20 +11,13 @@ const nodeTypes = {
 }
 
 export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId, componentInfoMap }) {
-  const reactFlowNodes = nodes.map(node => {
+  // Memoize nodes to prevent unnecessary recalculations
+  const reactFlowNodes = useMemo(() => nodes.map(node => {
     const componentInfo = getComponentInfo(node.label, componentInfoMap || {})
-
-    // Debug logging for horizontal-cylinder shape
-    if (node.label && node.label.toLowerCase().includes('kafka')) {
-      console.log('=== KAFKA NODE DEBUG ===')
-      console.log('node.label:', node.label)
-      console.log('componentInfo:', componentInfo)
-      console.log('Available keys in componentInfoMap:', Object.keys(componentInfoMap))
-    }
 
     return {
       id: node.id,
-      type: 'mystery', // Use custom node for all nodes (supports shapes & tooltips)
+      type: 'mystery',
       position: node.position,
       data: {
         label: node.mystery ? '???' : node.label,
@@ -32,18 +26,58 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         onNodeClick: onNodeClick,
         isSelected: selectedNodeId === node.id,
         componentInfo,
-        isMysteryNode: node.mystery || node.wasMystery // Pass mystery status
+        isMysteryNode: node.mystery || node.wasMystery
       }
     }
-  })
+  }), [nodes, componentInfoMap, onNodeClick, selectedNodeId])
 
-  const edges = nodes.flatMap(node =>
-    node.connectsTo.map(targetId => ({
-      id: `e${node.id}-${targetId}`,
-      source: node.id,
-      target: targetId
-    }))
-  )
+  // Memoize edges to prevent unnecessary recalculations
+  const edges = useMemo(() => {
+    // Build a set of all connections for bidirectional detection
+    const connectionSet = new Set()
+    nodes.forEach(node => {
+      node.connectsTo.forEach(targetId => {
+        connectionSet.add(`${node.id}-${targetId}`)
+      })
+    })
+
+    // Helper to check if connection is bidirectional
+    const isBidirectional = (sourceId, targetId) => {
+      return connectionSet.has(`${sourceId}-${targetId}`) &&
+             connectionSet.has(`${targetId}-${sourceId}`)
+    }
+
+    // Track which bidirectional edges we've already created to avoid duplicates
+    const processedBidirectional = new Set()
+
+    return nodes.flatMap(node =>
+      node.connectsTo.map(targetId => {
+        const edgeId = `e${node.id}-${targetId}`
+        const reverseEdgeId = `e${targetId}-${node.id}`
+
+        // Check if this is bidirectional
+        const bidirectional = isBidirectional(node.id, targetId)
+
+        // Skip if we already created this bidirectional edge from the reverse direction
+        if (bidirectional && processedBidirectional.has(reverseEdgeId)) {
+          return null
+        }
+
+        // Mark this edge as processed if bidirectional
+        if (bidirectional) {
+          processedBidirectional.add(edgeId)
+        }
+
+        return {
+          id: edgeId,
+          source: node.id,
+          target: targetId,
+          markerEnd: { type: 'arrowclosed', width: 20, height: 20 },
+          markerStart: bidirectional ? { type: 'arrowclosed', width: 20, height: 20 } : undefined
+        }
+      })
+    ).filter(edge => edge !== null)
+  }, [nodes])
 
   return (
     <main className="flex-1 bg-stone-800 relative">
@@ -55,6 +89,10 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         edges={edges}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
+        nodesConnectable={false}
+        nodesDraggable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
         fitView
         fitViewOptions={{ padding: { top: 0.3, right: 0.1, bottom: 0.2, left: 0.1 } }}
       >

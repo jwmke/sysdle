@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
-import { useRef, useEffect, useState } from 'react'
+import { useState } from 'react'
 import NodeShape from './NodeShape'
 import Tooltip from '../Tooltip'
 
@@ -13,8 +13,6 @@ export default function MysteryNode({ id, data }) {
   const onNodeClick = data.onNodeClick
   const isSelected = data.isSelected
 
-  const clickTimeoutRef = useRef(null)
-  const draggedRef = useRef(false)
   const [hideTooltip, setHideTooltip] = useState(false)
 
   // Only make mystery nodes droppable
@@ -33,47 +31,22 @@ export default function MysteryNode({ id, data }) {
     disabled: !isDraggable
   })
 
-  // Track when dragging starts
-  useEffect(() => {
-    if (isDragging) {
-      draggedRef.current = true
-      // Cancel any pending click
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-        clickTimeoutRef.current = null
-      }
-    }
-  }, [isDragging])
-
   // Combine refs for both droppable and draggable
   const setNodeRef = (element) => {
     setDroppableRef(element)
     setDraggableRef(element)
   }
 
-  const handleClick = (e) => {
+  const handleClick = () => {
     // Only handle clicks for mystery nodes
     if (!isMysteryNode) return
 
-    // Set a timer for the click - if drag starts within 200ms, cancel it
-    draggedRef.current = false
-
-    clickTimeoutRef.current = setTimeout(() => {
-      if (!draggedRef.current && onNodeClick) {
-        onNodeClick(id, data.label)
-      }
-      clickTimeoutRef.current = null
-    }, 200)
-  }
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-      }
+    // Delay-based activation ensures onClick only fires for quick clicks
+    // Long holds trigger drag instead
+    if (onNodeClick) {
+      onNodeClick(id, data.label)
     }
-  }, [])
+  }
 
   let bgColor = 'bg-stone-600'
   let textColor = 'text-white'
@@ -103,16 +76,6 @@ export default function MysteryNode({ id, data }) {
 
   // Determine shape - mystery nodes are always rectangles
   const nodeShape = isEmpty ? 'rectangle' : (data.componentInfo?.shape || 'rectangle')
-
-  // Debug logging for horizontal-cylinder shape
-  if (data.label && data.label.toLowerCase().includes('kafka')) {
-    console.log('=== MYSTERYNODE KAFKA DEBUG ===')
-    console.log('data.label:', data.label)
-    console.log('isEmpty:', isEmpty)
-    console.log('data.componentInfo:', data.componentInfo)
-    console.log('data.componentInfo?.shape:', data.componentInfo?.shape)
-    console.log('nodeShape (final):', nodeShape)
-  }
 
   // Get tooltip info (only show for non-empty, non-mystery nodes)
   const showTooltip = !isEmpty && data.componentInfo?.description

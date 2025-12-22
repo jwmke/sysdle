@@ -1,7 +1,7 @@
 import DraggableComponent from './DraggableComponent'
 import logo from '../assets/sysdle.svg'
 
-export default function Sidebar({ getComponentStatus, onLogoClick, components = [], onComponentClick, selectedComponent }) {
+export default function Sidebar({ getComponentStatus, onLogoClick, components = [], onComponentClick, selectedComponent, componentInfoMap }) {
   return (
     <aside className="w-full h-auto lg:w-80 lg:h-full bg-stone-900 border-t lg:border-t-0 rounded-t-2xl lg:rounded-none p-4 pb-20 lg:p-6 overflow-y-auto">
       {/* Logo - only visible on lg screens and larger */}
@@ -9,7 +9,7 @@ export default function Sidebar({ getComponentStatus, onLogoClick, components = 
         <img src={logo} alt="Sysdle" className="h-12 brightness-0 invert" />
         <h1 className="text-white text-3xl font-bold">Sysdle.com</h1>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-1 gap-1">
+      <div className="grid grid-cols-2 lg:grid-cols-1 gap-1 justify-items-center">
         {components.map((component) => (
           <DraggableComponent
             key={component}
@@ -17,6 +17,7 @@ export default function Sidebar({ getComponentStatus, onLogoClick, components = 
             status={getComponentStatus(component)}
             onClick={onComponentClick}
             isSelected={selectedComponent === component}
+            componentInfoMap={componentInfoMap}
           />
         ))}
       </div>

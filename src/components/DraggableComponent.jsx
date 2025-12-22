@@ -1,25 +1,11 @@
 import { useDraggable } from '@dnd-kit/core'
-import { useRef, useEffect } from 'react'
+import NodeShape from './nodes/NodeShape'
+import { getComponentInfo } from '../lib/supabase'
 
-export default function DraggableComponent({ component, status, onClick, isSelected }) {
+export default function DraggableComponent({ component, status, onClick, isSelected, componentInfoMap }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: component,
   })
-
-  const clickTimeoutRef = useRef(null)
-  const draggedRef = useRef(false)
-
-  // Track when dragging starts/ends
-  useEffect(() => {
-    if (isDragging) {
-      draggedRef.current = true
-      // Cancel any pending click
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-        clickTimeoutRef.current = null
-      }
-    }
-  }, [isDragging])
 
   const getBackgroundColor = () => {
     if (status === 'correct') return 'bg-green-300'
@@ -33,26 +19,24 @@ export default function DraggableComponent({ component, status, onClick, isSelec
     return 'text-white'
   }
 
-  const handleClick = (e) => {
-    // Set a timer for the click - if drag starts within 200ms, cancel it
-    draggedRef.current = false
-
-    clickTimeoutRef.current = setTimeout(() => {
-      if (!draggedRef.current && onClick) {
-        onClick(component)
-      }
-      clickTimeoutRef.current = null
-    }, 200)
+  const getBorderStyle = () => {
+    if (status === 'correct') return '2px solid #15803d'
+    if (status === 'wrong-position') return '2px solid #ca8a04'
+    if (status === 'incorrect') return '2px solid #dc2626'
+    return '2px solid #000'
   }
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-      }
+  // Get shape for this component
+  const componentInfo = getComponentInfo(component, componentInfoMap || {})
+  const shape = componentInfo?.shape || 'rectangle'
+
+  const handleClick = () => {
+    // Delay-based activation ensures onClick only fires for quick clicks
+    // Long holds trigger drag instead
+    if (onClick) {
+      onClick(component)
     }
-  }, [])
+  }
 
   return (
     <div
@@ -60,11 +44,18 @@ export default function DraggableComponent({ component, status, onClick, isSelec
       {...listeners}
       {...attributes}
       onClick={handleClick}
-      className={`${getBackgroundColor()} ${getTextColor()} px-3 mx-1 py-2.5 rounded text-center min-w-[142px] text-xs cursor-pointer lg:cursor-grab active:cursor-grabbing ${
+      className={`cursor-pointer lg:cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-50' : ''
-      } ${isSelected ? 'ring-4 ring-blue-400' : ''}`}
+      } ${isSelected ? 'ring-4 ring-blue-400 rounded' : ''}`}
     >
-      {component}
+      <NodeShape
+        shape={shape}
+        bgColor={getBackgroundColor()}
+        textColor={getTextColor()}
+        borderStyle={getBorderStyle()}
+      >
+        {component}
+      </NodeShape>
     </div>
   )
 }
