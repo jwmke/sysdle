@@ -8,6 +8,7 @@ import SideDrawer from './components/SideDrawer'
 import PastDaysModal from './components/PastDaysModal'
 import AboutModal from './components/AboutModal'
 import LoadingSpinner from './components/LoadingSpinner'
+import { fetchComponentInfo } from './lib/supabase'
 
 // Helper function to get today's date in YYYY-MM-DD format using local timezone
 const getLocalDateString = () => {
@@ -38,14 +39,11 @@ function App() {
   const [activeId, setActiveId] = useState(null)
   const [selectedComponent, setSelectedComponent] = useState(null)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [componentInfoMap, setComponentInfoMap] = useState({})
 
-  // Configure DnD sensors - require 10px movement before drag starts
+  // Configure DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 10, // Require 10px movement before drag activates
-      },
-    })
+    useSensor(PointerSensor)
   )
   const [guesses, setGuesses] = useState(() => {
     const saved = localStorage.getItem('guesses')
@@ -159,6 +157,15 @@ function App() {
     }
 
     fetchDailyGame()
+  }, [])
+
+  // Fetch component info on mount
+  useEffect(() => {
+    const loadComponentInfo = async () => {
+      const info = await fetchComponentInfo()
+      setComponentInfoMap(info)
+    }
+    loadComponentInfo()
   }, [])
 
   useEffect(() => {
@@ -605,6 +612,7 @@ https://sysdle.com`
           dailyGameTitle={dailyGameTitle}
           onNodeClick={handleNodeClick}
           selectedNodeId={selectedNodeId}
+          componentInfoMap={componentInfoMap}
         />
       </div>
       <DragOverlay>

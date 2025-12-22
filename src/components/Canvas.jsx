@@ -8,19 +8,25 @@ const nodeTypes = {
   mystery: MysteryNode,
 }
 
-export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId }) {
-  const reactFlowNodes = nodes.map(node => ({
-    id: node.id,
-    type: node.mystery || node.wasMystery ? 'mystery' : 'default',
-    position: node.position,
-    data: {
-      label: node.mystery ? '???' : node.label,
-      isCorrect: node.isCorrect,
-      guessStatus: node.guessStatus,
-      onNodeClick: onNodeClick,
-      isSelected: selectedNodeId === node.id
+export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId, componentInfoMap }) {
+  const reactFlowNodes = nodes.map(node => {
+    const componentInfo = componentInfoMap?.[node.label] || null
+
+    return {
+      id: node.id,
+      type: 'mystery', // Use custom node for all nodes (supports shapes & tooltips)
+      position: node.position,
+      data: {
+        label: node.mystery ? '???' : node.label,
+        isCorrect: node.isCorrect,
+        guessStatus: node.guessStatus,
+        onNodeClick: onNodeClick,
+        isSelected: selectedNodeId === node.id,
+        componentInfo,
+        isMysteryNode: node.mystery || node.wasMystery // Pass mystery status
+      }
     }
-  }))
+  })
 
   const edges = nodes.flatMap(node =>
     node.connectsTo.map(targetId => ({
