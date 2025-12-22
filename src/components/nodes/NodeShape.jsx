@@ -153,9 +153,10 @@ export default function NodeShape({ shape = 'rectangle', bgColor, textColor, bor
 // Helper to convert Tailwind bg color to hex
 function getBgColor(bgColorClass) {
   const colorMap = {
+    'bg-stone-100': '#f5f5f4',
+    'bg-stone-400': '#a8a29e',
     'bg-stone-600': '#57534e',
     'bg-stone-700': '#44403c',
-    'bg-stone-400': '#a8a29e',
     'bg-green-200': '#bbf7d0',
     'bg-yellow-200': '#fef08a',
     'bg-red-200': '#fecaca'

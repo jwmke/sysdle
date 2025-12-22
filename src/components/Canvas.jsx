@@ -3,6 +3,7 @@ import '@xyflow/react/dist/style.css'
 import MysteryNode from './nodes/MysteryNode'
 import Scoreboard from './Scoreboard'
 import Logo from './Logo'
+import { getComponentInfo } from '../lib/supabase'
 
 const nodeTypes = {
   mystery: MysteryNode,
@@ -10,7 +11,15 @@ const nodeTypes = {
 
 export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId, componentInfoMap }) {
   const reactFlowNodes = nodes.map(node => {
-    const componentInfo = componentInfoMap?.[node.label] || null
+    const componentInfo = getComponentInfo(node.label, componentInfoMap || {})
+
+    // Debug logging for horizontal-cylinder shape
+    if (node.label && node.label.toLowerCase().includes('kafka')) {
+      console.log('=== KAFKA NODE DEBUG ===')
+      console.log('node.label:', node.label)
+      console.log('componentInfo:', componentInfo)
+      console.log('Available keys in componentInfoMap:', Object.keys(componentInfoMap))
+    }
 
     return {
       id: node.id,

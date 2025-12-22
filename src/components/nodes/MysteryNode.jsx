@@ -96,13 +96,23 @@ export default function MysteryNode({ id, data }) {
     textColor = 'text-black'
   } else if (!isEmpty && !isMysteryNode) {
     // Regular non-mystery nodes
-    bgColor = 'bg-stone-700'
-    textColor = 'text-white'
-    borderStyle = '2px solid #57534e'
+    bgColor = 'bg-stone-100'
+    textColor = 'text-black'
+    borderStyle = '2px solid #d6d3d1'
   }
 
   // Determine shape - mystery nodes are always rectangles
   const nodeShape = isEmpty ? 'rectangle' : (data.componentInfo?.shape || 'rectangle')
+
+  // Debug logging for horizontal-cylinder shape
+  if (data.label && data.label.toLowerCase().includes('kafka')) {
+    console.log('=== MYSTERYNODE KAFKA DEBUG ===')
+    console.log('data.label:', data.label)
+    console.log('isEmpty:', isEmpty)
+    console.log('data.componentInfo:', data.componentInfo)
+    console.log('data.componentInfo?.shape:', data.componentInfo?.shape)
+    console.log('nodeShape (final):', nodeShape)
+  }
 
   // Get tooltip info (only show for non-empty, non-mystery nodes)
   const showTooltip = !isEmpty && data.componentInfo?.description
