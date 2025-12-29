@@ -8,7 +8,7 @@ import SideDrawer from './components/SideDrawer'
 import PastDaysModal from './components/PastDaysModal'
 import AboutModal from './components/AboutModal'
 import LoadingSpinner from './components/LoadingSpinner'
-import { fetchComponentInfo } from './lib/supabase'
+import { fetchComponentInfo, getComponentInfo } from './lib/supabase'
 
 // Helper function to get today's date in YYYY-MM-DD format using local timezone
 const getLocalDateString = () => {
@@ -40,6 +40,7 @@ function App() {
   const [selectedComponent, setSelectedComponent] = useState(null)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [componentInfoMap, setComponentInfoMap] = useState({})
+  const [mobileTooltipNode, setMobileTooltipNode] = useState(null)
 
   // Configure DnD sensors with delay activation
   // This allows quick clicks (< 150ms) to trigger onClick
@@ -108,6 +109,23 @@ function App() {
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
 
+        // Merge custom component metadata from nodes into componentInfoMap
+        setComponentInfoMap(prev => {
+          const merged = { ...prev }
+          gameData.nodes.forEach(node => {
+            if (node.description && node.shape) {
+              merged[node.label] = {
+                shape: node.shape,
+                category: 'custom',
+                description: node.description,
+                link: null,
+                aliases: []
+              }
+            }
+          })
+          return merged
+        })
+
         // Check if user has saved progress for today
         const savedNodes = localStorage.getItem('nodes')
         const savedDate = localStorage.getItem('currentGameDate')
@@ -149,6 +167,23 @@ function App() {
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
         setNodes(gameData.nodes)
+
+        // Merge custom component metadata from nodes into componentInfoMap
+        setComponentInfoMap(prev => {
+          const merged = { ...prev }
+          gameData.nodes.forEach(node => {
+            if (node.description && node.shape) {
+              merged[node.label] = {
+                shape: node.shape,
+                category: 'custom',
+                description: node.description,
+                link: null,
+                aliases: []
+              }
+            }
+          })
+          return merged
+        })
 
         // Clear old progress for new game
         localStorage.removeItem('guesses')
@@ -301,9 +336,23 @@ function App() {
   const handleComponentClick = useCallback((component) => {
     setSelectedComponent(component)
     setSelectedNodeId(null) // Clear node selection when selecting a component
+
+    // Set mobile tooltip for the clicked component
+    setMobileTooltipNode({ label: component })
   }, [])
 
-  const handleNodeClick = useCallback((nodeId, nodeLabel) => {
+  const handleNodeClick = useCallback((nodeId, nodeLabel, isMysteryNode) => {
+    // Update mobile tooltip for any non-empty node
+    if (nodeLabel !== '???') {
+      const node = nodes.find(n => n.id === nodeId)
+      if (node) {
+        setMobileTooltipNode({ label: nodeLabel, ...node })
+      }
+    }
+
+    // Only handle game interactions for mystery nodes
+    if (!isMysteryNode) return
+
     // If a component is selected from sidebar, place it on the node
     if (selectedComponent) {
       setNodes(prevNodes =>
@@ -363,7 +412,7 @@ function App() {
       setSelectedNodeId(nodeId)
       setSelectedComponent(null) // Clear component selection when selecting a node
     }
-  }, [selectedComponent, selectedNodeId])
+  }, [selectedComponent, selectedNodeId, nodes])
 
   const handleSubmit = () => {
     // If game is already won, do nothing
@@ -455,12 +504,13 @@ function App() {
         let newCurrentStreak
         if (lastCompleted === yesterday) {
           // Streak continues - completed yesterday
-          newCurrentStreak = prev.currentStreak + 1
+          // If previous streak was 0 (failed yesterday), start at 1
+          newCurrentStreak = prev.currentStreak === 0 ? 1 : prev.currentStreak + 1
         } else if (lastCompleted === today) {
           // Already completed today (shouldn't happen, but handle it)
           newCurrentStreak = prev.currentStreak
         } else {
-          // Streak broken - reset to 1
+          // Streak broken or first win - set to 1
           newCurrentStreak = 1
         }
 
@@ -468,15 +518,57 @@ function App() {
         const newMaxStreak = Math.max(newCurrentStreak, prev.maxStreak)
         const newTotalGuesses = prev.totalGuesses + guesses.length + 1
 
+        // Safety check: winning should never result in a 0 streak
+        const safeCurrentStreak = Math.max(1, newCurrentStreak)
+
         return {
-          currentStreak: newCurrentStreak,
-          maxStreak: newMaxStreak,
+          currentStreak: safeCurrentStreak,
+          maxStreak: Math.max(safeCurrentStreak, newMaxStreak),
           totalGamesWon: newTotalGamesWon,
           totalGuesses: newTotalGuesses,
           lastCompletedDate: today
         }
       })
       setShowStatsModal(true)
+    } else if (guesses.length + 1 >= 6) {
+      // Failed on 6th guess - game over
+      setGameWon(true) // Prevent further guesses
+
+      // Show failure toast
+      setToast("You didn't get it this time!")
+
+      // Reveal the correct answers in green
+      setNodes(prevNodes =>
+        prevNodes.map(node => {
+          if (!mysteryNodeIds.includes(node.id)) return node
+
+          const nodeIndex = mysteryNodeIds.indexOf(node.id)
+          const correctLabel = correctAnswers[nodeIndex]
+
+          return {
+            ...node,
+            label: correctLabel,
+            mystery: false,
+            guessStatus: 'correct'
+          }
+        })
+      )
+
+      // Update stats for failure: break streak, don't count guesses
+      setStats(prev => {
+        const today = getLocalDateString()
+        const newMaxStreak = prev.maxStreak // Don't change max streak on failure
+
+        return {
+          currentStreak: 0, // Break the streak
+          maxStreak: newMaxStreak,
+          totalGamesWon: prev.totalGamesWon, // Don't increment games won
+          totalGuesses: prev.totalGuesses, // Don't count guesses from losses
+          lastCompletedDate: today
+        }
+      })
+
+      // Don't show stats modal immediately
     }
   }
 
@@ -511,6 +603,23 @@ function App() {
           .filter(node => node.mystery)
           .map(node => node.id)
         setMysteryNodeIds(mysteryIds)
+
+        // Merge custom component metadata from nodes
+        setComponentInfoMap(prev => {
+          const merged = { ...prev }
+          gameData.nodes.forEach(node => {
+            if (node.description && node.shape) {
+              merged[node.label] = {
+                shape: node.shape,
+                category: 'custom',
+                description: node.description,
+                link: null,
+                aliases: []
+              }
+            }
+          })
+          return merged
+        })
       } else {
         // Fetch from API
         const response = await fetch(`/api/daily-game?date=${today}`)
@@ -525,6 +634,23 @@ function App() {
           .filter(node => node.mystery)
           .map(node => node.id)
         setMysteryNodeIds(mysteryIds)
+
+        // Merge custom component metadata from nodes
+        setComponentInfoMap(prev => {
+          const merged = { ...prev }
+          gameData.nodes.forEach(node => {
+            if (node.description && node.shape) {
+              merged[node.label] = {
+                shape: node.shape,
+                category: 'custom',
+                description: node.description,
+                link: null,
+                aliases: []
+              }
+            }
+          })
+          return merged
+        })
       }
 
       // Show notification
@@ -570,8 +696,8 @@ function App() {
     }
 
     const averageGuesses = stats.totalGamesWon > 0
-      ? Math.round(stats.totalGuesses / stats.totalGamesWon)
-      : 0
+      ? (stats.totalGuesses / stats.totalGamesWon).toFixed(2)
+      : '0.00'
 
     const shareText = `🔧 ${dateStr} 🔧
 🔥 ${stats.currentStreak} | Avg. Guesses: ${averageGuesses}
@@ -591,6 +717,9 @@ https://sysdle.com`
     )
   }
 
+  // Get mobile tooltip info
+  const mobileTooltipInfo = mobileTooltipNode ? getComponentInfo(mobileTooltipNode.label, componentInfoMap) : null
+
   return (
     <DndContext
       sensors={sensors}
@@ -599,14 +728,24 @@ https://sysdle.com`
       autoScroll={false}
     >
       <div className="flex flex-col-reverse lg:flex-row h-screen bg-stone-800">
-        <Sidebar
-          getComponentStatus={getComponentStatus}
-          onLogoClick={() => setShowDrawer(true)}
-          components={availableComponents}
-          onComponentClick={handleComponentClick}
-          selectedComponent={selectedComponent}
-          componentInfoMap={componentInfoMap}
-        />
+        <div className="bg-stone-700/80 backdrop-blur-sm rounded-t-2xl lg:bg-transparent lg:backdrop-blur-none lg:rounded-none">
+          {/* Mobile tooltip box - only visible on small screens */}
+          {mobileTooltipNode && mobileTooltipInfo?.description && (
+            <div className="lg:hidden w-full px-4 py-3">
+              <p className="text-white text-sm text-center">
+                <span className="font-semibold">{mobileTooltipNode.label}:</span> {mobileTooltipInfo.description}
+              </p>
+            </div>
+          )}
+          <Sidebar
+            getComponentStatus={getComponentStatus}
+            onLogoClick={() => setShowDrawer(true)}
+            components={availableComponents}
+            onComponentClick={handleComponentClick}
+            selectedComponent={selectedComponent}
+            componentInfoMap={componentInfoMap}
+          />
+        </div>
         <Canvas
           nodes={nodes}
           onSubmit={handleSubmit}
@@ -636,7 +775,7 @@ https://sysdle.com`
         onClose={() => setShowStatsModal(false)}
         stats={{
           ...stats,
-          averageGuesses: stats.totalGamesWon > 0 ? Math.round(stats.totalGuesses / stats.totalGamesWon) : 0
+          averageGuesses: stats.totalGamesWon > 0 ? (stats.totalGuesses / stats.totalGamesWon).toFixed(2) : '0.00'
         }}
         guesses={guesses}
         onShare={handleShare}

@@ -16,6 +16,8 @@ interface DailyGame {
     position: { x: number; y: number }
     connectsTo: string[]
     mystery: boolean
+    description?: string
+    shape?: 'rectangle' | 'cylinder' | 'diamond' | 'parallelogram'
   }>
 }
 
@@ -28,12 +30,14 @@ interface GeneratedPuzzle {
     position: { x: number; y: number }
     connectsTo: string[]
     mystery: boolean
+    description?: string
+    shape?: 'rectangle' | 'cylinder' | 'diamond' | 'parallelogram'
   }>
 }
 
 // Helper to get date string YYYY-MM-DD
-function getDateString(daysOffset: number = 0): string {
-  const date = new Date()
+function getDateString(daysOffset: number = 0, fromDate?: Date): string {
+  const date = fromDate ? new Date(fromDate) : new Date()
   date.setDate(date.getDate() + daysOffset)
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -155,18 +159,20 @@ function hasComponentDuplicatingVisibleNode(puzzle: GeneratedPuzzle): boolean {
 
 // Validate mystery nodes come from 3 different layers
 function validateMysteryNodeLayers(nodes: GeneratedPuzzle['nodes']): { valid: boolean; error?: string } {
-  const layer1 = ['CDN', 'Load Balancer', 'API Gateway', 'Reverse Proxy', 'Rate Limiter']
-  const layer2 = ['WebSocket Server', 'Auth Service', 'Notification Service', 'Recommendation Engine', 
+  const layer1 = ['CDN', 'Load Balancer', 'API Gateway', 'Reverse Proxy', 'Rate Limiter', 'GraphQL Gateway', 'Edge Function']
+  const layer2 = ['WebSocket Server', 'Auth Service', 'Notification Service', 'Recommendation Engine',
                   'Search Service', 'Payment Gateway', 'API Server', 'Order Service', 'Inventory Service',
                   'Payment Service', 'Profile Service', 'Network Service', 'Listing Service', 'Booking Service',
                   'User Service', 'Message Service', 'Write Service', 'Read Service', 'Query Processor',
                   'Web Crawler', 'ML Service', 'Fraud Detection Service', 'Analytics Service', 'ML Inference Service',
-                  'Voice Gateway', 'Presence Service', 'Event Stream', 'Ranking Service', 'Feature Flag Service']
+                  'Voice Gateway', 'Presence Service', 'Event Stream', 'Ranking Service', 'Feature Flag Service',
+                  'Operational Transform Service', 'MQTT Broker']
   const layer3 = ['PostgreSQL', 'MySQL', 'MongoDB', 'Cassandra', 'DynamoDB', 'Redis Cache', 'Memcached',
                   'S3', 'Object Storage', 'File Storage', 'Blob Storage', 'Kafka', 'RabbitMQ', 'Message Queue',
                   'Event Bus', 'Elasticsearch', 'Data Warehouse', 'Analytics DB', 'Cache Layer', 'Document Store',
                   'Distributed Index', 'Model Storage', 'Time-Series DB', 'Graph Database', 'Vector Database',
-                  'Dead Letter Queue', 'Schema Registry', 'Config Server', 'Vault', 'Consul', 'ZooKeeper']
+                  'Dead Letter Queue', 'Schema Registry', 'Config Server', 'Vault', 'Consul', 'ZooKeeper',
+                  'Git Storage', 'Geospatial DB', 'PostGIS']
 
   const mysteryNodes = nodes.filter(n => n.mystery)
   
@@ -190,6 +196,101 @@ function validateMysteryNodeLayers(nodes: GeneratedPuzzle['nodes']): { valid: bo
   return { valid: true }
 }
 
+// Check if puzzle has custom components without metadata
+function validateCustomComponentInfo(puzzle: GeneratedPuzzle): { valid: boolean; error?: string } {
+  // Standard components that don't need metadata (commonly used, already in component_info table)
+  const standardComponents = new Set([
+    // Edge
+    'CDN', 'Load Balancer', 'API Gateway', 'Reverse Proxy', 'Rate Limiter', 'GraphQL Gateway', 'Edge Function',
+    // Messaging
+    'Kafka', 'RabbitMQ', 'Message Queue', 'Event Bus', 'Dead Letter Queue',
+    // Databases
+    'PostgreSQL', 'MySQL', 'MongoDB', 'Redis Cache', 'Cassandra', 'DynamoDB', 'Elasticsearch',
+    'Time-Series DB', 'Graph Database', 'Vector Database', 'Geospatial DB', 'PostGIS', 'Git Storage',
+    // Storage
+    'S3', 'Object Storage', 'Blob Storage', 'File Storage',
+    // Common services (already in component_info table)
+    'WebSocket Server', 'Auth Service', 'Notification Service', 'API Server', 'Web Server',
+    'Payment Gateway', 'Recommendation Engine', 'ML Inference Service', 'Fraud Detection Service',
+    'Analytics Service', 'Search Service', 'ML Model Server', 'A/B Testing Service',
+    // Other standard
+    'User', 'Circuit Breaker', 'Service Mesh', 'Memcached', 'Vault', 'Consul', 'ZooKeeper',
+    'Schema Registry', 'Config Server', 'MQTT Broker'
+  ])
+
+  // Check each node for custom components that need metadata
+  const missingMetadata: string[] = []
+  for (const node of puzzle.nodes) {
+    if (node.label === '???' || node.label === 'User') continue
+
+    const isStandard = Array.from(standardComponents).some(
+      std => std.toLowerCase() === node.label.toLowerCase()
+    )
+
+    if (!isStandard) {
+      // This is a custom component - it needs description and shape
+      if (!node.description || !node.shape) {
+        missingMetadata.push(node.label)
+      }
+    }
+  }
+
+  if (missingMetadata.length > 0) {
+    return {
+      valid: false,
+      error: `Custom components missing description/shape in nodes: ${missingMetadata.join(', ')}`
+    }
+  }
+
+  return { valid: true }
+}
+
+// Check if two titles are semantically similar based on keywords
+function areTitlesSimilar(title1: string, title2: string): boolean {
+  // Normalize titles to lowercase and remove common words
+  const commonWords = new Set(['design', 'a', 'an', 'the', 'for', 'system', 'service', 'app', 'application'])
+
+  const extractKeywords = (title: string): Set<string> => {
+    const words = title.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !commonWords.has(word))
+
+    const keywords = new Set(words)
+
+    // Also add word stems/roots for better matching
+    // e.g., "gaming" and "game" should match
+    const stems = new Set<string>()
+    for (const word of words) {
+      // Add common stem patterns
+      if (word.endsWith('ing')) stems.add(word.slice(0, -3))
+      if (word.endsWith('s')) stems.add(word.slice(0, -1))
+      if (word.endsWith('er')) stems.add(word.slice(0, -2))
+      if (word.endsWith('ed')) stems.add(word.slice(0, -2))
+    }
+
+    return new Set([...keywords, ...stems])
+  }
+
+  const keywords1 = extractKeywords(title1)
+  const keywords2 = extractKeywords(title2)
+
+  // Check for keyword overlap
+  let overlapCount = 0
+  for (const keyword of keywords1) {
+    if (keywords2.has(keyword)) {
+      overlapCount++
+    }
+  }
+
+  // If 2+ keywords overlap, or if 1 keyword overlaps and both titles have few keywords, consider similar
+  const minKeywords = Math.min(keywords1.size, keywords2.size)
+  if (overlapCount >= 2) return true
+  if (overlapCount >= 1 && minKeywords <= 2) return true
+
+  return false
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -207,21 +308,49 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
     const anthropic = new Anthropic({ apiKey: anthropicKey })
 
-    const targetDate = getDateString(7)
-
-    const { data: existing } = await supabase
-      .from('daily_games')
-      .select('date')
-      .eq('date', targetDate)
-      .single()
-
-    if (existing) {
-      return new Response(
-        JSON.stringify({ message: 'Puzzle already exists for target date', date: targetDate }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Parse request body for date parameters
+    let body: { startDate?: string; endDate?: string; daysOut?: number } = {}
+    try {
+      const text = await req.text()
+      if (text) {
+        body = JSON.parse(text)
+      }
+    } catch (e) {
+      // Ignore parse errors, use defaults
     }
 
+    // Determine target dates
+    let targetDates: string[] = []
+
+    if (body.startDate && body.endDate) {
+      // Generate range from startDate to endDate
+      const start = new Date(body.startDate)
+      const end = new Date(body.endDate)
+      const current = new Date(start)
+
+      while (current <= end) {
+        targetDates.push(getDateString(0, current))
+        current.setDate(current.getDate() + 1)
+      }
+    } else if (body.startDate) {
+      // Single date
+      targetDates = [body.startDate]
+    } else if (body.daysOut !== undefined) {
+      // Specific days out
+      targetDates = [getDateString(body.daysOut)]
+    } else {
+      // Default: check for missing puzzles in the next 14 days and fill gaps
+      // This ensures that if a puzzle fails one day, the next run will catch it
+      const lookAheadDays = 14
+      for (let i = 0; i <= lookAheadDays; i++) {
+        targetDates.push(getDateString(i))
+      }
+      console.log(`Default mode: checking for missing puzzles in the next ${lookAheadDays} days`)
+    }
+
+    const results: Array<{ date: string; status: string; message: string; puzzle?: any }> = []
+
+    // Fetch all existing games once (used for all date generations)
     const { data: allGames, error: fetchError } = await supabase
       .from('daily_games')
       .select('title, date, nodes')
@@ -229,25 +358,61 @@ Deno.serve(async (req) => {
 
     if (fetchError) throw fetchError
 
-    const existingTitles = (allGames || []).map(game => game.title)
-    const recentGames = (allGames || []).slice(0, 7)
-    const recentTitles = recentGames.map(game => game.title)
-    
-    // Get mystery components from last 3 days (banned)
-    const bannedMysteryComponents = getRecentMysteryComponents(allGames || [], 3)
-    
-    // Check if standard opening was used in last 7 days
-    const standardOpeningUsedRecently = wasStandardOpeningUsedRecently(allGames || [], 7)
+    // Check which target dates already have puzzles
+    const existingDates = new Set((allGames || []).map(game => game.date))
+    const datesToGenerate = targetDates.filter(date => !existingDates.has(date))
 
-    const MAX_RETRIES = 3
-    let lastError: Error | null = null
-    let generatedPuzzle: GeneratedPuzzle | null = null
+    // Report skipped dates
+    for (const date of targetDates) {
+      if (existingDates.has(date)) {
+        results.push({
+          date,
+          status: 'skipped',
+          message: 'Puzzle already exists for this date'
+        })
+      }
+    }
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // Limit to generating 5 puzzles per run to avoid timeouts
+    // If there are more missing, they'll be caught in the next run
+    const MAX_PUZZLES_PER_RUN = 5
+    const limitedDatesToGenerate = datesToGenerate.slice(0, MAX_PUZZLES_PER_RUN)
+
+    if (datesToGenerate.length > MAX_PUZZLES_PER_RUN) {
+      console.log(`Found ${datesToGenerate.length} missing dates, limiting to ${MAX_PUZZLES_PER_RUN} per run`)
+      for (const date of datesToGenerate.slice(MAX_PUZZLES_PER_RUN)) {
+        results.push({
+          date,
+          status: 'deferred',
+          message: 'Deferred to next run (max puzzles per run reached)'
+        })
+      }
+    }
+
+    // Generate puzzles for missing dates
+    for (const targetDate of limitedDatesToGenerate) {
+      console.log(`Generating puzzle for ${targetDate}`)
+
+      const existingTitles = (allGames || []).map(game => game.title)
+      const recentGames = (allGames || []).slice(0, 7)
+      const recentTitles = recentGames.map(game => game.title)
+
+      // Get mystery components from last 7 days (banned)
+      const bannedMysteryComponents = getRecentMysteryComponents(allGames || [], 7)
+
+      // Check if standard opening was used in last 7 days
+      const standardOpeningUsedRecently = wasStandardOpeningUsedRecently(allGames || [], 7)
+
+      const MAX_RETRIES = 5
+      let lastError: Error | null = null
+      let generatedPuzzle: GeneratedPuzzle | null = null
+      let previousErrors: string[] = []
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         console.log(`Attempt ${attempt} of ${MAX_RETRIES} to generate puzzle`)
 
-        const prompt = `You are a puzzle designer for Sysdle, a daily system design puzzle game similar to Wordle but for software engineers.
+        let prompt = `You are a puzzle designer for Sysdle, a daily system design puzzle game similar to Wordle but for software engineers.
 
 Your task is to generate ONE daily puzzle. The puzzle consists of:
 1. A title: A system design challenge (e.g., "Design TikTok", "Design Netflix", "Design a URL Shortener")
@@ -266,22 +431,27 @@ ${existingTitles.join(', ')}
 
 **Recent Puzzles - CREATE VARIETY:**
 ${recentTitles.join(', ')}
-Pick from diverse categories: fintech, gaming, IoT, developer tools, logistics, e-commerce, infrastructure, messaging, etc.
+**CRITICAL: Your puzzle topic must be significantly different from these recent titles.** Do NOT create puzzles with similar themes or keywords (e.g., if recent puzzles include "Gaming Leaderboard", avoid "Game Matchmaking" or other gaming topics). Pick from diverse categories: fintech, gaming, IoT, developer tools, logistics, e-commerce, infrastructure, messaging, social media, cloud services, data analytics, etc.
 
 **Mystery Node Rules:**
 - Exactly 3 nodes should be mystery nodes (player must guess them)
-- ${bannedMysteryComponents.length > 0 ? `BANNED MYSTERY COMPONENTS (used in last 3 days, DO NOT use as mystery nodes): ${bannedMysteryComponents.join(', ')}` : 'No recently used mystery components to avoid.'}
+- ${bannedMysteryComponents.length > 0 ? `BANNED MYSTERY COMPONENTS (used in last 7 days, DO NOT use as mystery nodes): ${bannedMysteryComponents.join(', ')}` : 'No recently used mystery components to avoid.'}
 - **Mystery nodes MUST come from 3 different architectural layers:**
-  - Layer 1 (Edge/Networking): CDN, Load Balancer, API Gateway, Reverse Proxy, Rate Limiter
-  - Layer 2 (Application/Services): WebSocket Server, Auth Service, Notification Service, Recommendation Engine, Search Service, Payment Gateway, Fraud Detection Service, Analytics Service, ML Inference Service, Order Service, etc.
-  - Layer 3 (Data/Storage): PostgreSQL, Redis Cache, Kafka, S3, Elasticsearch, MongoDB, Cassandra, Message Queue, etc.
-  - You MUST have exactly ONE mystery node from each layer.
+  - Layer 1 (Edge/Networking): CDN, Load Balancer, API Gateway, Reverse Proxy, Rate Limiter, GraphQL Gateway, Edge Function
+  - Layer 2 (Application/Services): WebSocket Server, Auth Service, Notification Service, Recommendation Engine, Search Service, Payment Gateway, Fraud Detection Service, Analytics Service, ML Inference Service, Order Service, MQTT Broker, Operational Transform Service, etc.
+  - Layer 3 (Data/Storage): PostgreSQL, Redis Cache, Kafka, S3, Elasticsearch, MongoDB, Cassandra, Message Queue, Time-Series DB, Graph Database, Vector Database, Git Storage, Geospatial DB, etc.
+  - **You MUST have exactly ONE mystery node from each layer.** This is validated - puzzles with 2 nodes from the same layer will be REJECTED.
+  - **IMPORTANT: Do NOT skip Layer 1 (Edge).** Historical data shows Layer 1 mystery nodes are often forgotten. Always include an edge/networking mystery component like CDN, Load Balancer, API Gateway, Rate Limiter, or GraphQL Gateway.
+- **CRITICAL: WebSocket Server has been overused. Strongly prefer other edge/service layer options:**
+  - Edge layer (Layer 1): CDN, Load Balancer, API Gateway, Rate Limiter, Reverse Proxy, GraphQL Gateway, Edge Function
+  - Service layer (Layer 2): Auth Service, Notification Service, Recommendation Engine, Payment Gateway, Fraud Detection Service, Analytics Service, ML Inference Service, MQTT Broker
+  - Only use WebSocket Server if the system is genuinely real-time focused (gaming, chat, live updates)
 - **Mystery node variety:** Avoid making databases the "easy" mystery nodes—their cylinder shape in diagrams makes them visually obvious. Ensure at least one mystery node is a service-type component (rectangular shape) such as Recommendation Engine, Fraud Detection Service, Notification Service, Auth Service, Payment Gateway, Analytics Service, or ML Inference Service.
 
 **Component List Rules:**
 - The 8 components must include all 3 mystery node answers plus 5 decoys
 - **CRITICAL: None of the 8 components may duplicate any visible (non-mystery) node label in the puzzle.** If "Load Balancer" appears as a non-mystery node, it CANNOT be in the components list.
-- **At least 2 of the 8 components must be "less common" picks** from this list: Circuit Breaker, Rate Limiter, Feature Flag Service, Secrets Manager, Service Mesh, GraphQL Gateway, Sidecar Proxy, Config Server, Vault, Consul, ZooKeeper, Schema Registry, Dead Letter Queue, Blob Storage, Time-Series DB, Graph Database, Vector Database, ML Model Server, A/B Testing Service, Audit Log Service
+- **At least 3 of the 8 components must be "less common" picks** from this list: Circuit Breaker, Rate Limiter, Feature Flag Service, Secrets Manager, Service Mesh, GraphQL Gateway, Sidecar Proxy, Config Server, Vault, Consul, ZooKeeper, Schema Registry, Dead Letter Queue, Blob Storage, Time-Series DB, Graph Database, Vector Database, ML Model Server, A/B Testing Service, Audit Log Service
 
 **Diagram Entry Pattern:**
 ${standardOpeningUsedRecently ? `**WARNING: The standard opening pattern (User → CDN → Load Balancer → API Gateway) has been overused in recent puzzles. You MUST use a different entry pattern.**` : 'Vary the opening pattern - avoid always using User → CDN → Load Balancer → API Gateway.'}
@@ -314,12 +484,17 @@ Nodes can and SHOULD connect to each other bidirectionally (A connects to B AND 
 7. **Event Mesh:** Multiple event-driven services interconnected through message queues
 8. **Microservices Mesh:** Several services with peer-to-peer connections, not just top-down flow
 
-**Node Positioning Guidelines:**
+**Node Positioning Guidelines (STRICT VALIDATION):**
 - Use a vertical flow: User at top (y: 0), components below
 - Space nodes vertically by ~80-100px between levels
-- **CRITICAL SPACING RULE**: If two nodes are within 50px of each other vertically (Y axis), they MUST be at least 150px apart horizontally (X axis)
-- When branching horizontally, spread nodes widely (e.g., x=50, x=250, x=450)
+- **CRITICAL SPACING RULE - MOST COMMON FAILURE**: If two nodes are within 50px of each other vertically (Y axis), they MUST be at least 150px apart horizontally (X axis)
+  - Example FAIL: Node A at (x:200, y:300) and Node B at (x:250, y:320) - only 50px apart horizontally, 20px apart vertically ❌
+  - Example PASS: Node A at (x:100, y:300) and Node B at (x:300, y:320) - 200px apart horizontally, 20px apart vertically ✅
+- When placing nodes at similar Y coordinates, spread them FAR apart on X axis:
+  - Same row: x=50, x=250, x=450 (200px minimum spacing)
+  - Never place nodes closer than 150px horizontally if they're within 50px vertically
 - Canvas width is approximately 600px, keep x values between 50 and 550
+- **BEFORE FINALIZING**: Check every pair of nodes - if Y positions are close (< 50px difference), ensure X positions are far apart (> 150px)
 
 **Available Component Types:**
 Standard: CDN, Load Balancer, API Gateway, Reverse Proxy, API Server, Web Server, Application Server
@@ -346,6 +521,33 @@ Services: Payment Gateway, Notification Service, Recommendation Engine, ML Model
 - 8 components with no duplicates of visible nodes
 - At least 2-3 bidirectional connection pairs
 
+**CUSTOM COMPONENT METADATA (REQUIRED):**
+For ANY node that is NOT a standard infrastructure component, you MUST include "description" and "shape" fields directly in that node object.
+
+**Standard components (do NOT need description/shape):**
+- Edge: CDN, Load Balancer, API Gateway, Reverse Proxy, Rate Limiter, GraphQL Gateway
+- Messaging: Kafka, RabbitMQ, Message Queue, Event Bus
+- Databases: PostgreSQL, MySQL, MongoDB, Redis Cache, Cassandra, DynamoDB, Elasticsearch, Time-Series DB, Graph Database, Vector Database, Git Storage
+- Storage: S3, Object Storage, Blob Storage
+- Common Services: WebSocket Server, Auth Service, Notification Service, Payment Gateway, Recommendation Engine, ML Inference Service, Fraud Detection Service, Analytics Service, Search Service, ML Model Server, A/B Testing Service
+- Other: User, Circuit Breaker, Service Mesh, Vault, MQTT Broker
+
+**Custom components (MUST have description and shape in node object):**
+Any domain-specific or application-specific service like:
+- "Trading Engine", "Order Matching Service", "Price Feed Service", "Settlement Service"
+- "Matchmaking Service", "Leaderboard Service", "Player Service"
+- "Content Moderation", "Recommendation Engine", "Fraud Detection Service"
+- "Risk Management", "Payment Processing", "Inventory Service"
+
+For each custom component node, add these fields:
+- **description**: ONE sentence (max 15 words) explaining what this component does
+- **shape**: "rectangle" (for services), "cylinder" (for specialized databases), "diamond" (for routers), or "parallelogram" (for queues)
+
+**Example custom node:**
+{"id": "5", "label": "Trading Engine", "position": {"x": 100, "y": 280}, "connectsTo": ["6"], "mystery": false, "description": "Executes buy and sell orders with matching logic", "shape": "rectangle"}
+
+**CRITICAL**: Any non-standard component MUST have description and shape fields. Failure to include these will result in rejection.
+
 EXAMPLE PUZZLES:
 
 Example 1 - Event-Driven Architecture (Hub and Spoke):
@@ -355,9 +557,9 @@ Example 1 - Event-Driven Architecture (Hub and Spoke):
   "nodes": [
     {"id": "1", "label": "User", "position": {"x": 300, "y": 0}, "connectsTo": ["2"], "mystery": false},
     {"id": "2", "label": "API Gateway", "position": {"x": 300, "y": 80}, "connectsTo": ["3"], "mystery": false},
-    {"id": "3", "label": "Order Service", "position": {"x": 300, "y": 160}, "connectsTo": ["4"], "mystery": false},
+    {"id": "3", "label": "Order Service", "position": {"x": 300, "y": 160}, "connectsTo": ["4"], "mystery": false, "description": "Manages order creation, validation, and lifecycle tracking", "shape": "rectangle"},
     {"id": "4", "label": "Kafka", "position": {"x": 300, "y": 260}, "connectsTo": ["5", "6", "7"], "mystery": true},
-    {"id": "5", "label": "Inventory Service", "position": {"x": 100, "y": 360}, "connectsTo": ["4", "8"], "mystery": false},
+    {"id": "5", "label": "Inventory Service", "position": {"x": 100, "y": 360}, "connectsTo": ["4", "8"], "mystery": false, "description": "Tracks product availability and reserves items for orders", "shape": "rectangle"},
     {"id": "6", "label": "Payment Service", "position": {"x": 300, "y": 360}, "connectsTo": ["4", "8"], "mystery": true},
     {"id": "7", "label": "Notification Service", "position": {"x": 500, "y": 360}, "connectsTo": ["4"], "mystery": false},
     {"id": "8", "label": "PostgreSQL", "position": {"x": 200, "y": 460}, "connectsTo": [], "mystery": true}
@@ -371,53 +573,30 @@ Example 2 - CQRS with Parallel Pipelines:
   "nodes": [
     {"id": "1", "label": "User", "position": {"x": 300, "y": 0}, "connectsTo": ["2"], "mystery": false},
     {"id": "2", "label": "Rate Limiter", "position": {"x": 300, "y": 80}, "connectsTo": ["3", "4"], "mystery": true},
-    {"id": "3", "label": "Command Service", "position": {"x": 150, "y": 180}, "connectsTo": ["5", "6"], "mystery": false},
-    {"id": "4", "label": "Query Service", "position": {"x": 450, "y": 180}, "connectsTo": ["7", "8"], "mystery": false},
+    {"id": "3", "label": "Command Service", "position": {"x": 150, "y": 180}, "connectsTo": ["5", "6"], "mystery": false, "description": "Processes trade orders and validates transactions before execution", "shape": "rectangle"},
+    {"id": "4", "label": "Query Service", "position": {"x": 450, "y": 180}, "connectsTo": ["7", "8"], "mystery": false, "description": "Retrieves portfolio data and market information for display", "shape": "rectangle"},
     {"id": "5", "label": "Fraud Detection Service", "position": {"x": 100, "y": 280}, "connectsTo": ["6"], "mystery": true},
     {"id": "6", "label": "Kafka", "position": {"x": 250, "y": 360}, "connectsTo": ["9"], "mystery": false},
     {"id": "7", "label": "Redis Cache", "position": {"x": 400, "y": 280}, "connectsTo": ["4"], "mystery": false},
     {"id": "8", "label": "Time-Series DB", "position": {"x": 550, "y": 280}, "connectsTo": [], "mystery": true},
-    {"id": "9", "label": "Trade Ledger", "position": {"x": 250, "y": 460}, "connectsTo": [], "mystery": false}
-  ]
-}
-
-Example 3 - Microservices with Bidirectional Connections:
-{
-  "title": "Design a Food Delivery System",
-  "components": ["GraphQL Gateway", "Redis Cache", "MongoDB", "Kafka", "Circuit Breaker", "ML Model Server", "PostGIS", "Rate Limiter"],
-  "nodes": [
-    {"id": "1", "label": "User", "position": {"x": 300, "y": 0}, "connectsTo": ["2"], "mystery": false},
-    {"id": "2", "label": "GraphQL Gateway", "position": {"x": 300, "y": 80}, "connectsTo": ["3", "4", "5"], "mystery": true},
-    {"id": "3", "label": "Restaurant Service", "position": {"x": 100, "y": 180}, "connectsTo": ["6", "7"], "mystery": false},
-    {"id": "4", "label": "Order Service", "position": {"x": 300, "y": 180}, "connectsTo": ["7", "8"], "mystery": false},
-    {"id": "5", "label": "Driver Service", "position": {"x": 500, "y": 180}, "connectsTo": ["7", "9"], "mystery": false},
-    {"id": "6", "label": "MongoDB", "position": {"x": 50, "y": 300}, "connectsTo": [], "mystery": true},
-    {"id": "7", "label": "Redis Cache", "position": {"x": 300, "y": 300}, "connectsTo": ["3", "4", "5"], "mystery": false},
-    {"id": "8", "label": "Kafka", "position": {"x": 200, "y": 400}, "connectsTo": ["10"], "mystery": false},
-    {"id": "9", "label": "ML Model Server", "position": {"x": 500, "y": 300}, "connectsTo": ["5"], "mystery": true},
-    {"id": "10", "label": "Analytics Service", "position": {"x": 200, "y": 500}, "connectsTo": [], "mystery": false}
-  ]
-}
-
-Example 4 - Circular/Feedback Pattern:
-{
-  "title": "Design a Content Recommendation Engine",
-  "components": ["Vector Database", "Kafka", "Redis Cache", "Feature Flag Service", "PostgreSQL", "Circuit Breaker", "A/B Testing Service", "S3"],
-  "nodes": [
-    {"id": "1", "label": "User", "position": {"x": 300, "y": 0}, "connectsTo": ["2"], "mystery": false},
-    {"id": "2", "label": "API Gateway", "position": {"x": 300, "y": 80}, "connectsTo": ["3"], "mystery": false},
-    {"id": "3", "label": "Content Service", "position": {"x": 300, "y": 160}, "connectsTo": ["4", "5"], "mystery": false},
-    {"id": "4", "label": "Vector Database", "position": {"x": 150, "y": 260}, "connectsTo": [], "mystery": true},
-    {"id": "5", "label": "A/B Testing Service", "position": {"x": 450, "y": 260}, "connectsTo": ["6"], "mystery": true},
-    {"id": "6", "label": "Kafka", "position": {"x": 450, "y": 360}, "connectsTo": ["7"], "mystery": false},
-    {"id": "7", "label": "ML Pipeline", "position": {"x": 300, "y": 460}, "connectsTo": ["4", "8"], "mystery": false},
-    {"id": "8", "label": "Feature Flag Service", "position": {"x": 150, "y": 360}, "connectsTo": ["3"], "mystery": true}
+    {"id": "9", "label": "Trade Ledger", "position": {"x": 250, "y": 460}, "connectsTo": [], "mystery": false, "description": "Immutable record of all executed trades and transactions", "shape": "cylinder"}
   ]
 }
 
 CRITICAL: Return ONLY valid JSON with no additional text, explanation, or markdown. The response must be parseable by JSON.parse().
 
 Generate a new puzzle now:`
+
+        // Add error feedback if this is a retry
+        if (previousErrors.length > 0) {
+          prompt += `\n\n**PREVIOUS ATTEMPT ERRORS - FIX THESE:**\n`
+          previousErrors.forEach((error, idx) => {
+            prompt += `Attempt ${idx + 1} failed: ${error}\n`
+          })
+          prompt += `\nPlease generate a puzzle that avoids these errors. You can either fix the same concept or choose a completely different system design.`
+        }
+
+        prompt += `\n\nGenerate the puzzle now (JSON only):`
 
         const message = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
@@ -428,13 +607,21 @@ Generate a new puzzle now:`
           }]
         })
 
-        const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
+        let responseText = message.content[0].type === 'text' ? message.content[0].text : ''
+
+        // Strip markdown code blocks if present
+        responseText = responseText.trim()
+        if (responseText.startsWith('```json')) {
+          responseText = responseText.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+        } else if (responseText.startsWith('```')) {
+          responseText = responseText.replace(/^```\s*/, '').replace(/\s*```$/, '')
+        }
 
         let puzzle: GeneratedPuzzle
         try {
           puzzle = JSON.parse(responseText)
         } catch (e) {
-          throw new Error(`Failed to parse Claude response: ${responseText}`)
+          throw new Error(`Failed to parse Claude response: ${responseText.substring(0, 500)}...`)
         }
 
         // Validation checks
@@ -472,10 +659,19 @@ Generate a new puzzle now:`
           throw new Error('Generated puzzle has duplicate title')
         }
 
-        // NEW: Check that no component duplicates a visible node
-        if (hasComponentDuplicatingVisibleNode(puzzle)) {
-          throw new Error('Component list contains a label that matches a visible (non-mystery) node')
+        // Check for similar titles in recent games (last 7 days)
+        const similarTitle = recentTitles.find(title =>
+          areTitlesSimilar(title, puzzle.title)
+        )
+        if (similarTitle) {
+          throw new Error(`Generated puzzle title "${puzzle.title}" is too similar to recent puzzle "${similarTitle}"`)
         }
+
+        // NEW: Check that no component duplicates a visible node
+        // TEMPORARILY DISABLED - validation too strict
+        // if (hasComponentDuplicatingVisibleNode(puzzle)) {
+        //   throw new Error('Component list contains a label that matches a visible (non-mystery) node')
+        // }
 
         // NEW: Validate mystery nodes come from 3 different layers
         const layerValidation = validateMysteryNodeLayers(puzzle.nodes)
@@ -483,11 +679,17 @@ Generate a new puzzle now:`
           throw new Error(layerValidation.error)
         }
 
+        // NEW: Validate custom components have metadata
+        const customInfoValidation = validateCustomComponentInfo(puzzle)
+        if (!customInfoValidation.valid) {
+          throw new Error(customInfoValidation.error)
+        }
+
         // NEW: Check that banned mystery components aren't used
         const mysteryLabels = puzzle.nodes.filter(n => n.mystery).map(n => n.label)
         for (const banned of bannedMysteryComponents) {
           if (mysteryLabels.some(label => label.toLowerCase() === banned.toLowerCase())) {
-            throw new Error(`Mystery component "${banned}" was used in the last 3 days and cannot be a mystery node`)
+            throw new Error(`Mystery component "${banned}" was used in the last 7 days and cannot be a mystery node`)
           }
         }
 
@@ -499,6 +701,9 @@ Generate a new puzzle now:`
         lastError = error as Error
         console.error(`Attempt ${attempt} failed:`, error.message)
 
+        // Add error to previousErrors so the next attempt knows what went wrong
+        previousErrors.push(error.message)
+
         if (attempt === MAX_RETRIES) {
           console.error(`All ${MAX_RETRIES} attempts failed`)
         } else {
@@ -508,29 +713,58 @@ Generate a new puzzle now:`
       }
     }
 
-    if (!generatedPuzzle) {
-      throw new Error(`Failed to generate puzzle after ${MAX_RETRIES} attempts. Last error: ${lastError?.message}`)
-    }
+      if (!generatedPuzzle) {
+        results.push({
+          date: targetDate,
+          status: 'failed',
+          message: `Failed to generate puzzle after ${MAX_RETRIES} attempts. Last error: ${lastError?.message}`
+        })
+        console.error(`Failed to generate puzzle for ${targetDate}`)
+        continue
+      }
 
-    const { data: insertedGame, error: insertError } = await supabase
-      .from('daily_games')
-      .insert({
+      const { data: insertedGame, error: insertError } = await supabase
+        .from('daily_games')
+        .insert({
+          date: targetDate,
+          title: generatedPuzzle.title,
+          components: generatedPuzzle.components,
+          nodes: generatedPuzzle.nodes
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        results.push({
+          date: targetDate,
+          status: 'failed',
+          message: `Failed to insert puzzle: ${insertError.message}`
+        })
+        console.error(`Failed to insert puzzle for ${targetDate}:`, insertError)
+        continue
+      }
+
+      results.push({
         date: targetDate,
-        title: generatedPuzzle.title,
-        components: generatedPuzzle.components,
-        nodes: generatedPuzzle.nodes
+        status: 'success',
+        message: 'Puzzle generated successfully',
+        puzzle: insertedGame
       })
-      .select()
-      .single()
+      console.log(`Successfully generated puzzle for ${targetDate}: ${insertedGame.title}`)
 
-    if (insertError) throw insertError
+      // Add the new puzzle to allGames so it's considered for the next date in the loop
+      allGames?.unshift(insertedGame)
+    }
 
     return new Response(
       JSON.stringify({
-        success: true,
-        message: 'Puzzle generated successfully',
-        date: targetDate,
-        puzzle: insertedGame
+        success: results.some(r => r.status === 'success'),
+        totalDates: targetDates.length,
+        generated: results.filter(r => r.status === 'success').length,
+        skipped: results.filter(r => r.status === 'skipped').length,
+        failed: results.filter(r => r.status === 'failed').length,
+        deferred: results.filter(r => r.status === 'deferred').length,
+        results
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

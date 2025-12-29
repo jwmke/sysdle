@@ -38,13 +38,10 @@ export default function MysteryNode({ id, data }) {
   }
 
   const handleClick = () => {
-    // Only handle clicks for mystery nodes
-    if (!isMysteryNode) return
-
     // Delay-based activation ensures onClick only fires for quick clicks
     // Long holds trigger drag instead
     if (onNodeClick) {
-      onNodeClick(id, data.label)
+      onNodeClick(id, data.label, isMysteryNode)
     }
   }
 

@@ -2,7 +2,7 @@ import { useDraggable } from '@dnd-kit/core'
 import NodeShape from './nodes/NodeShape'
 import { getComponentInfo } from '../lib/supabase'
 
-export default function DraggableComponent({ component, status, onClick, isSelected, componentInfoMap }) {
+export default function DraggableComponent({ component, status, onClick, isSelected, componentInfoMap, onHoverChange }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: component,
   })
@@ -38,12 +38,19 @@ export default function DraggableComponent({ component, status, onClick, isSelec
     }
   }
 
+  const handleMouseEnter = () => {
+    if (onHoverChange) {
+      onHoverChange(component)
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
       className={`cursor-pointer lg:cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-50' : ''
       } ${isSelected ? 'ring-4 ring-blue-400 rounded' : ''}`}

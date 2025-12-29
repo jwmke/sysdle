@@ -24,7 +24,7 @@ export default function StatsModal({ isOpen, onClose, stats, guesses, onShare })
 
         <div className="bg-stone-800 rounded p-4 text-center mb-6">
           <div className="text-3xl font-bold text-white">{stats.averageGuesses}</div>
-          <div className="text-sm text-stone-400">Average Guesses</div>
+          <div className="text-sm text-stone-400">Average Guesses to Win</div>
         </div>
 
         <div className="flex gap-3">

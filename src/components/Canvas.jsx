@@ -91,10 +91,10 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
         nodesDraggable={false}
-        panOnDrag={false}
+        panOnDrag={true}
         zoomOnScroll={false}
         fitView
-        fitViewOptions={{ padding: { top: 0.3, right: 0.1, bottom: 0.2, left: 0.1 } }}
+        fitViewOptions={{ padding: { top: 0.4, right: 0.1, bottom: 0.2, left: 0.1 } }}
       >
         <Background />
       </ReactFlow>
