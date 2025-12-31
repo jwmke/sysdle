@@ -1,0 +1,17 @@
+{
+  "name": "Sysdle - Daily System Design Puzzle",
+  "short_name": "Sysdle",
+  "description": "Daily puzzle game for system design nerds. Guess the missing components.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c1917",
+  "theme_color": "#1c1917",
+  "icons": [
+    {
+      "src": "/sysdle.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

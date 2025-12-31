@@ -10,7 +10,10 @@
       "Bash(supabase db inspect:*)",
       "Bash(supabase status:*)",
       "Bash(npx supabase:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

@@ -5,11 +5,15 @@ export default function AboutModal({ isOpen, onClose }) {
     <Modal isOpen={isOpen} onClose={onClose} title="About">
       <div className="space-y-4 text-stone-300">
         <p>
-          <span className="font-semibold text-white">Sysdle</span> is a daily system design game where you identify missing components in distributed systems architectures. Each day presents a new challenge to test your knowledge of databases, caches, load balancers, and more.
+          <span className="font-semibold text-white">Sysdle</span> is a daily puzzle game for aspiring system design nerds.
         </p>
 
         <p>
-          In the era of LLMs, understanding high-level system architecture is more crucial than ever. While AI can generate code, the ability to design scalable, resilient systems requires deep architectural thinking that only comes from experience and practice.
+          Guess the missing components in architecture diagrams. Databases, caches, load balancers, API gateways - you know the drill.
+        </p>
+
+        <p>
+          New puzzle every day at midnight.
         </p>
 
         <div className="pt-4 border-t border-stone-700">

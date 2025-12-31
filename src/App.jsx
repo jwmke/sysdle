@@ -1,5 +1,6 @@
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import Toast from './components/Toast'
@@ -91,6 +92,11 @@ function App() {
   const [showDrawer, setShowDrawer] = useState(false)
   const [showPastDaysModal, setShowPastDaysModal] = useState(false)
   const [showAboutModal, setShowAboutModal] = useState(false)
+  const [currentDate, setCurrentDate] = useState(null) // null means today, otherwise YYYY-MM-DD
+  const [completedDays, setCompletedDays] = useState(() => {
+    const saved = localStorage.getItem('completedDays')
+    return saved ? JSON.parse(saved) : []
+  })
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('stats')
     if (saved) {
@@ -240,27 +246,40 @@ function App() {
   }, [activeId])
 
   useEffect(() => {
-    localStorage.setItem('guesses', JSON.stringify(guesses))
-  }, [guesses])
+    // Only save today's puzzle state, not past puzzles
+    if (!currentDate) {
+      localStorage.setItem('guesses', JSON.stringify(guesses))
+    }
+  }, [guesses, currentDate])
 
   useEffect(() => {
-    // Only save nodes if they exist (not empty array on initial load)
-    if (nodes.length > 0) {
+    // Only save nodes if they exist (not empty array on initial load) and viewing today
+    if (nodes.length > 0 && !currentDate) {
       localStorage.setItem('nodes', JSON.stringify(nodes))
     }
-  }, [nodes])
+  }, [nodes, currentDate])
 
   useEffect(() => {
-    localStorage.setItem('gameWon', JSON.stringify(gameWon))
-  }, [gameWon])
+    // Only save today's puzzle state, not past puzzles
+    if (!currentDate) {
+      localStorage.setItem('gameWon', JSON.stringify(gameWon))
+    }
+  }, [gameWon, currentDate])
 
   useEffect(() => {
-    localStorage.setItem('componentStatuses', JSON.stringify(componentStatuses))
-  }, [componentStatuses])
+    // Only save today's puzzle state, not past puzzles
+    if (!currentDate) {
+      localStorage.setItem('componentStatuses', JSON.stringify(componentStatuses))
+    }
+  }, [componentStatuses, currentDate])
 
   useEffect(() => {
     localStorage.setItem('stats', JSON.stringify(stats))
   }, [stats])
+
+  useEffect(() => {
+    localStorage.setItem('completedDays', JSON.stringify(completedDays))
+  }, [completedDays])
 
   // Check for date changes every 60 seconds (midnight reset)
   useEffect(() => {
@@ -451,8 +470,9 @@ function App() {
     }
 
     // Get the correct answers for mystery nodes from the initial game data
+    const gameDate = currentDate || getLocalDateString()
     const correctAnswers = mysteryNodeIds.map(id => {
-      const savedGameData = localStorage.getItem(`daily-game-${getLocalDateString()}`)
+      const savedGameData = localStorage.getItem(`daily-game-${gameDate}`)
       const gameData = JSON.parse(savedGameData)
       const correctNode = gameData.nodes.find(n => n.id === id)
       return correctNode.label
@@ -516,41 +536,65 @@ function App() {
     // If all correct, mark game as won and update stats
     if (allCorrect) {
       setGameWon(true)
-      setStats(prev => {
+
+      // Only update stats if this is today's puzzle
+      if (!currentDate) {
         const today = getLocalDateString()
-        const yesterday = getYesterdayDateString()
-        const lastCompleted = prev.lastCompletedDate
 
-        // Determine if streak continues or resets
-        let newCurrentStreak
-        if (lastCompleted === yesterday) {
-          // Streak continues - completed yesterday
-          // If previous streak was 0 (failed yesterday), start at 1
-          newCurrentStreak = prev.currentStreak === 0 ? 1 : prev.currentStreak + 1
-        } else if (lastCompleted === today) {
-          // Already completed today (shouldn't happen, but handle it)
-          newCurrentStreak = prev.currentStreak
-        } else {
-          // Streak broken or first win - set to 1
-          newCurrentStreak = 1
-        }
+        setStats(prev => {
+          const yesterday = getYesterdayDateString()
+          const lastCompleted = prev.lastCompletedDate
 
-        const newTotalGamesWon = prev.totalGamesWon + 1
-        const newMaxStreak = Math.max(newCurrentStreak, prev.maxStreak)
-        const newTotalGuesses = prev.totalGuesses + guesses.length + 1
+          // Determine if streak continues or resets
+          let newCurrentStreak
+          if (lastCompleted === yesterday) {
+            // Streak continues - completed yesterday
+            // If previous streak was 0 (failed yesterday), start at 1
+            newCurrentStreak = prev.currentStreak === 0 ? 1 : prev.currentStreak + 1
+          } else if (lastCompleted === today) {
+            // Already completed today (shouldn't happen, but handle it)
+            newCurrentStreak = prev.currentStreak
+          } else {
+            // Streak broken or first win - set to 1
+            newCurrentStreak = 1
+          }
 
-        // Safety check: winning should never result in a 0 streak
-        const safeCurrentStreak = Math.max(1, newCurrentStreak)
+          const newTotalGamesWon = prev.totalGamesWon + 1
+          const newMaxStreak = Math.max(newCurrentStreak, prev.maxStreak)
+          const newTotalGuesses = prev.totalGuesses + guesses.length + 1
 
-        return {
-          currentStreak: safeCurrentStreak,
-          maxStreak: Math.max(safeCurrentStreak, newMaxStreak),
-          totalGamesWon: newTotalGamesWon,
-          totalGuesses: newTotalGuesses,
-          lastCompletedDate: today
-        }
-      })
-      setShowStatsModal(true)
+          // Safety check: winning should never result in a 0 streak
+          const safeCurrentStreak = Math.max(1, newCurrentStreak)
+
+          return {
+            currentStreak: safeCurrentStreak,
+            maxStreak: Math.max(safeCurrentStreak, newMaxStreak),
+            totalGamesWon: newTotalGamesWon,
+            totalGuesses: newTotalGuesses,
+            lastCompletedDate: today
+          }
+        })
+
+        // Add today to completed days
+        setCompletedDays(prev => {
+          if (!prev.includes(today)) {
+            return [...prev, today]
+          }
+          return prev
+        })
+
+        setShowStatsModal(true)
+      } else {
+        // Past puzzle completed - add to completedDays but don't update stats
+        setCompletedDays(prev => {
+          if (!prev.includes(currentDate)) {
+            return [...prev, currentDate]
+          }
+          return prev
+        })
+        // Open past days modal to select another puzzle
+        setShowPastDaysModal(true)
+      }
     } else if (guesses.length + 1 >= 6) {
       // Failed on 6th guess - game over
       setGameWon(true) // Prevent further guesses
@@ -575,19 +619,39 @@ function App() {
         })
       )
 
-      // Update stats for failure: break streak, don't count guesses
-      setStats(prev => {
+      // Only update stats if this is today's puzzle
+      if (!currentDate) {
         const today = getLocalDateString()
-        const newMaxStreak = prev.maxStreak // Don't change max streak on failure
 
-        return {
-          currentStreak: 0, // Break the streak
-          maxStreak: newMaxStreak,
-          totalGamesWon: prev.totalGamesWon, // Don't increment games won
-          totalGuesses: prev.totalGuesses, // Don't count guesses from losses
-          lastCompletedDate: today
-        }
-      })
+        // Update stats for failure: break streak, don't count guesses
+        setStats(prev => {
+          const newMaxStreak = prev.maxStreak // Don't change max streak on failure
+
+          return {
+            currentStreak: 0, // Break the streak
+            maxStreak: newMaxStreak,
+            totalGamesWon: prev.totalGamesWon, // Don't increment games won
+            totalGuesses: prev.totalGuesses, // Don't count guesses from losses
+            lastCompletedDate: today
+          }
+        })
+
+        // Add today to completed days even on failure
+        setCompletedDays(prev => {
+          if (!prev.includes(today)) {
+            return [...prev, today]
+          }
+          return prev
+        })
+      } else {
+        // Past puzzle failed - still mark as completed
+        setCompletedDays(prev => {
+          if (!prev.includes(currentDate)) {
+            return [...prev, currentDate]
+          }
+          return prev
+        })
+      }
 
       // Don't show stats modal immediately
     }
@@ -679,6 +743,173 @@ function App() {
     } catch (error) {
       console.error('Error loading new daily game:', error)
       setToast('Failed to load new puzzle. Please refresh.')
+    }
+  }
+
+  const loadPastPuzzle = async (dateStr) => {
+    // If selecting today's date, just return to today normally
+    const today = getLocalDateString()
+    if (dateStr === today) {
+      returnToToday()
+      return
+    }
+
+    setLoading(true)
+    setCurrentDate(dateStr)
+    setMobileTooltipNode(null)
+
+    const cacheKey = `daily-game-${dateStr}`
+    const isCompleted = completedDays.includes(dateStr)
+
+    try {
+      // Check localStorage first
+      const cached = localStorage.getItem(cacheKey)
+      let gameData
+
+      if (cached) {
+        gameData = JSON.parse(cached)
+      } else {
+        // Fetch from API
+        const response = await fetch(`/api/daily-game?date=${dateStr}`)
+        if (!response.ok) throw new Error('Failed to fetch past game')
+        gameData = await response.json()
+        // Cache it
+        localStorage.setItem(cacheKey, JSON.stringify(gameData))
+      }
+
+      // Extract mystery node IDs
+      const mysteryIds = gameData.nodes
+        .filter(node => node.mystery)
+        .map(node => node.id)
+      setMysteryNodeIds(mysteryIds)
+
+      setDailyGameTitle(gameData.title)
+      setAvailableComponents(gameData.components)
+
+      // Merge custom component metadata
+      setComponentInfoMap(prev => {
+        const merged = { ...prev }
+        gameData.nodes.forEach(node => {
+          if (node.description && node.shape) {
+            merged[node.label] = {
+              shape: node.shape,
+              category: 'custom',
+              description: node.description,
+              link: null,
+              aliases: []
+            }
+          }
+        })
+        return merged
+      })
+
+      // If completed, show the correct answers
+      if (isCompleted) {
+        setNodes(gameData.nodes.map(node => {
+          const wasOriginallyMystery = node.mystery
+          return {
+            ...node,
+            mystery: false,
+            wasMystery: wasOriginallyMystery,
+            guessStatus: wasOriginallyMystery ? 'correct' : undefined
+          }
+        }))
+        setGameWon(true)
+        setGuesses([]) // No guess history for completed past puzzles
+      } else {
+        // Load fresh puzzle for incomplete past days
+        setNodes(gameData.nodes)
+        setGameWon(false)
+        setGuesses([])
+      }
+
+      setComponentStatuses({})
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading past puzzle:', error)
+      setToast('Failed to load past puzzle. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  const returnToToday = async () => {
+    setLoading(true)
+    setCurrentDate(null)
+    setMobileTooltipNode(null)
+
+    const today = getLocalDateString()
+    const cacheKey = `daily-game-${today}`
+
+    // Make sure currentGameDate is set to today
+    localStorage.setItem('currentGameDate', today)
+
+    try {
+      // Check localStorage first
+      const cached = localStorage.getItem(cacheKey)
+      let gameData
+
+      if (cached) {
+        gameData = JSON.parse(cached)
+      } else {
+        // Fetch from API
+        const response = await fetch(`/api/daily-game?date=${today}`)
+        if (!response.ok) throw new Error('Failed to fetch daily game')
+        gameData = await response.json()
+        localStorage.setItem(cacheKey, JSON.stringify(gameData))
+      }
+
+      // Extract mystery node IDs
+      const mysteryIds = gameData.nodes
+        .filter(node => node.mystery)
+        .map(node => node.id)
+      setMysteryNodeIds(mysteryIds)
+
+      setDailyGameTitle(gameData.title)
+      setAvailableComponents(gameData.components)
+
+      // Merge custom component metadata
+      setComponentInfoMap(prev => {
+        const merged = { ...prev }
+        gameData.nodes.forEach(node => {
+          if (node.description && node.shape) {
+            merged[node.label] = {
+              shape: node.shape,
+              category: 'custom',
+              description: node.description,
+              link: null,
+              aliases: []
+            }
+          }
+        })
+        return merged
+      })
+
+      // Check if user has saved progress for today
+      const savedNodes = localStorage.getItem('nodes')
+      const savedDate = localStorage.getItem('currentGameDate')
+      const savedGuesses = localStorage.getItem('guesses')
+      const savedGameWon = localStorage.getItem('gameWon')
+      const savedStatuses = localStorage.getItem('componentStatuses')
+
+      if (savedNodes && savedDate === today) {
+        // Load saved progress from today
+        setNodes(JSON.parse(savedNodes))
+        setGuesses(savedGuesses ? JSON.parse(savedGuesses) : [])
+        setGameWon(savedGameWon ? JSON.parse(savedGameWon) : false)
+        setComponentStatuses(savedStatuses ? JSON.parse(savedStatuses) : {})
+      } else {
+        // New game
+        setNodes(gameData.nodes)
+        setGuesses([])
+        setGameWon(false)
+        setComponentStatuses({})
+      }
+
+      setLoading(false)
+    } catch (error) {
+      console.error('Error returning to today:', error)
+      setToast('Failed to load today\'s puzzle. Please refresh.')
+      setLoading(false)
     }
   }
 
@@ -781,6 +1012,9 @@ https://sysdle.com`
           onNodeClick={handleNodeClick}
           selectedNodeId={selectedNodeId}
           componentInfoMap={componentInfoMap}
+          currentDate={currentDate}
+          onReturnToToday={returnToToday}
+          onOtherPastDays={() => setShowPastDaysModal(true)}
         />
       </div>
       <DragOverlay>
@@ -800,6 +1034,10 @@ https://sysdle.com`
         }}
         guesses={guesses}
         onShare={handleShare}
+        onPastDaysClick={() => {
+          setShowStatsModal(false)
+          setShowPastDaysModal(true)
+        }}
       />
       <SideDrawer
         isOpen={showDrawer}
@@ -816,11 +1054,14 @@ https://sysdle.com`
       <PastDaysModal
         isOpen={showPastDaysModal}
         onClose={() => setShowPastDaysModal(false)}
+        onDateSelect={loadPastPuzzle}
+        completedDays={completedDays}
       />
       <AboutModal
         isOpen={showAboutModal}
         onClose={() => setShowAboutModal(false)}
       />
+      <Analytics />
     </DndContext>
   )
 }

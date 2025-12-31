@@ -1,6 +1,6 @@
 import Modal from './Modal'
 
-export default function StatsModal({ isOpen, onClose, stats, guesses, onShare }) {
+export default function StatsModal({ isOpen, onClose, stats, guesses, onShare, onPastDaysClick }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Statistics">
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -29,7 +29,7 @@ export default function StatsModal({ isOpen, onClose, stats, guesses, onShare })
 
         <div className="flex gap-3">
           <button
-            onClick={() => {}}
+            onClick={onPastDaysClick}
             className="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-3 rounded font-semibold transition-colors"
           >
             Past Days
