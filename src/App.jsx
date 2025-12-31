@@ -54,16 +54,37 @@ function App() {
     })
   )
   const [guesses, setGuesses] = useState(() => {
-    const saved = localStorage.getItem('guesses')
-    return saved ? JSON.parse(saved) : []
+    const savedDate = localStorage.getItem('currentGameDate')
+    const currentDate = getLocalDateString()
+
+    // Only load from localStorage if it's the same day
+    if (savedDate === currentDate) {
+      const saved = localStorage.getItem('guesses')
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
   })
   const [gameWon, setGameWon] = useState(() => {
-    const saved = localStorage.getItem('gameWon')
-    return saved ? JSON.parse(saved) : false
+    const savedDate = localStorage.getItem('currentGameDate')
+    const currentDate = getLocalDateString()
+
+    // Only load from localStorage if it's the same day
+    if (savedDate === currentDate) {
+      const saved = localStorage.getItem('gameWon')
+      return saved ? JSON.parse(saved) : false
+    }
+    return false
   })
   const [componentStatuses, setComponentStatuses] = useState(() => {
-    const saved = localStorage.getItem('componentStatuses')
-    return saved ? JSON.parse(saved) : {}
+    const savedDate = localStorage.getItem('currentGameDate')
+    const currentDate = getLocalDateString()
+
+    // Only load from localStorage if it's the same day
+    if (savedDate === currentDate) {
+      const saved = localStorage.getItem('componentStatuses')
+      return saved ? JSON.parse(saved) : {}
+    }
+    return {}
   })
   const [toast, setToast] = useState(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
