@@ -71,7 +71,7 @@ export default function MysteryNode({ id, data }) {
     borderStyle = '2px solid #d6d3d1'
   }
 
-  // Determine shape - mystery nodes are always rectangles
+  // Mystery nodes (???) are always rectangles until guessed
   const nodeShape = isEmpty ? 'rectangle' : (data.componentInfo?.shape || 'rectangle')
 
   // Get tooltip info (only show for non-empty, non-mystery nodes)
