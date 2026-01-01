@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Modal from './Modal'
 
 // Minimum date that can be selected (December 28th, 2025)
-const MIN_DATE = new Date(2025, 11, 28) // Month is 0-indexed, so 11 = December
+const MIN_DATE = new Date(2026, 0, 1) // Month is 0-indexed, so 11 = December
 
 export default function PastDaysModal({ isOpen, onClose, onDateSelect, completedDays = [] }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
