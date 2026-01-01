@@ -20,7 +20,6 @@ export async function fetchComponentInfo() {
 
   // Return empty object if Supabase isn't configured
   if (!supabase) {
-    console.warn('Supabase not configured - component info features disabled')
     return {}
   }
 
@@ -30,7 +29,6 @@ export async function fetchComponentInfo() {
       .select('*')
 
     if (error) {
-      console.error('Error fetching component info:', error)
       return {}
     }
 
@@ -49,7 +47,6 @@ export async function fetchComponentInfo() {
     componentInfoCache = infoMap
     return infoMap
   } catch (error) {
-    console.error('Error fetching component info:', error)
     return {}
   }
 }

@@ -5,6 +5,7 @@ import Modal from './Modal'
 const MIN_DATE = new Date(2026, 0, 1) // Month is 0-indexed, so 11 = December
 
 export default function PastDaysModal({ isOpen, onClose, onDateSelect, completedDays = [] }) {
+  const isAdmin = import.meta.env.VITE_ADMIN_MODE === 'true'
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   const today = new Date()
@@ -29,9 +30,13 @@ export default function PastDaysModal({ isOpen, onClose, onDateSelect, completed
   }
 
   // Check if date is disabled (before MIN_DATE or in the future)
+  // In admin mode, allow future dates
   const isDisabled = (date) => {
     const d = new Date(date)
     d.setHours(0, 0, 0, 0)
+    if (isAdmin) {
+      return d < minDate
+    }
     return d < minDate || d > today
   }
 
@@ -88,6 +93,8 @@ export default function PastDaysModal({ isOpen, onClose, onDateSelect, completed
         className += ' disabled'
       } else if (completed) {
         className += ' completed'
+      } else if (date > today && isAdmin) {
+        className += ' future'
       } else if (date < today) {
         className += ' past'
       }
@@ -113,7 +120,7 @@ export default function PastDaysModal({ isOpen, onClose, onDateSelect, completed
   ]
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Past Days">
+    <Modal isOpen={isOpen} onClose={onClose} title={isAdmin ? "Past & Future Days (Admin)" : "Past Days"}>
       <div className="calendar-container">
         {/* Navigation */}
         <div className="calendar-header">
@@ -227,6 +234,15 @@ export default function PastDaysModal({ isOpen, onClose, onDateSelect, completed
 
         .calendar-day.past {
           color: #a8a29e;
+        }
+
+        .calendar-day.future {
+          color: #fbbf24;
+          border: 1px solid #fbbf24;
+        }
+
+        .calendar-day.future:hover {
+          background: rgba(251, 191, 36, 0.1);
         }
 
         .calendar-day.completed {

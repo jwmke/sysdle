@@ -9,6 +9,7 @@ import StatsModal from './components/StatsModal'
 import SideDrawer from './components/SideDrawer'
 import PastDaysModal from './components/PastDaysModal'
 import AboutModal from './components/AboutModal'
+import PrivacyPolicyModal from './components/PrivacyPolicyModal'
 import LoadingSpinner from './components/LoadingSpinner'
 import { fetchComponentInfo, getComponentInfo } from './lib/supabase'
 
@@ -107,6 +108,7 @@ function App() {
   const [showDrawer, setShowDrawer] = useState(false)
   const [showPastDaysModal, setShowPastDaysModal] = useState(false)
   const [showAboutModal, setShowAboutModal] = useState(false)
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [currentDate, setCurrentDate] = useState(null) // null means today, otherwise YYYY-MM-DD
   const [completedDays, setCompletedDays] = useState(() => {
     const saved = localStorage.getItem('completedDays')
@@ -155,9 +157,9 @@ function App() {
         setComponentInfoMap(prev => {
           const merged = { ...prev }
           gameData.nodes.forEach(node => {
-            if (node.description && node.shape) {
+            if (node.description) {
               merged[node.label] = {
-                shape: node.shape,
+                shape: node.shape || 'rectangle',
                 category: 'custom',
                 description: node.description,
                 link: null,
@@ -214,9 +216,9 @@ function App() {
         setComponentInfoMap(prev => {
           const merged = { ...prev }
           gameData.nodes.forEach(node => {
-            if (node.description && node.shape) {
+            if (node.description) {
               merged[node.label] = {
-                shape: node.shape,
+                shape: node.shape || 'rectangle',
                 category: 'custom',
                 description: node.description,
                 link: null,
@@ -234,7 +236,6 @@ function App() {
 
         setLoading(false)
       } catch (error) {
-        console.error('Error fetching daily game:', error)
         setToast('Failed to load daily game. Please refresh.')
         setLoading(false)
       }
@@ -247,7 +248,10 @@ function App() {
   useEffect(() => {
     const loadComponentInfo = async () => {
       const info = await fetchComponentInfo()
-      setComponentInfoMap(info)
+      setComponentInfoMap(prev => {
+        // Preserve any custom node descriptions that were already loaded
+        return { ...info, ...prev }
+      })
     }
     loadComponentInfo()
   }, [])
@@ -795,7 +799,6 @@ function App() {
       // Show notification
       setToast('New daily puzzle available!')
     } catch (error) {
-      console.error('Error loading new daily game:', error)
       setToast('Failed to load new puzzle. Please refresh.')
     }
   }
@@ -880,7 +883,6 @@ function App() {
       setComponentStatuses({})
       setLoading(false)
     } catch (error) {
-      console.error('Error loading past puzzle:', error)
       setToast('Failed to load past puzzle. Please try again.')
       setLoading(false)
     }
@@ -961,7 +963,6 @@ function App() {
 
       setLoading(false)
     } catch (error) {
-      console.error('Error returning to today:', error)
       setToast('Failed to load today\'s puzzle. Please refresh.')
       setLoading(false)
     }
@@ -1121,6 +1122,14 @@ https://sysdle.com`
       <AboutModal
         isOpen={showAboutModal}
         onClose={() => setShowAboutModal(false)}
+        onPrivacyClick={() => {
+          setShowAboutModal(false)
+          setShowPrivacyModal(true)
+        }}
+      />
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
       />
       <Analytics />
     </DndContext>

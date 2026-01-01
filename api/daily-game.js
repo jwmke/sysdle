@@ -16,7 +16,6 @@ export default async function handler(req, res) {
     const supabaseKey = process.env.SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing environment variables:', { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey })
       return res.status(500).json({
         error: 'Server configuration error',
         details: 'Missing Supabase credentials'
@@ -47,12 +46,10 @@ export default async function handler(req, res) {
       .maybeSingle()
 
     if (error) {
-      console.error('Supabase error:', error)
       return res.status(500).json({ error: 'Failed to fetch daily game', details: error.message })
     }
 
     if (!data) {
-      console.log('No game found for date:', requestedDate)
       return res.status(404).json({
         error: 'No game found for today',
         date: requestedDate,
@@ -67,7 +64,6 @@ export default async function handler(req, res) {
       title: data.title
     })
   } catch (error) {
-    console.error('Server error:', error)
     return res.status(500).json({ error: 'Internal server error' })
   }
 }

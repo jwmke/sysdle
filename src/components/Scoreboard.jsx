@@ -20,7 +20,7 @@ export default function Scoreboard({ onSubmit, guesses, gameWon, onShare }) {
   }
 
   return (
-    <div className="absolute top-4 right-4 z-10 flex flex-col gap-1">
+    <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 lg:scale-140 lg:origin-top-right">
       <div className="grid grid-cols-3 gap-1">
         {Array.from({ length: MAX_GUESSES * 3 }, (_, i) => {
           const rowIndex = Math.floor(i / 3)
