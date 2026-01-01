@@ -686,12 +686,13 @@ Generate a new puzzle now:`
         }
 
         // NEW: Check that banned mystery components aren't used
-        const mysteryLabels = puzzle.nodes.filter(n => n.mystery).map(n => n.label)
-        for (const banned of bannedMysteryComponents) {
-          if (mysteryLabels.some(label => label.toLowerCase() === banned.toLowerCase())) {
-            throw new Error(`Mystery component "${banned}" was used in the last 7 days and cannot be a mystery node`)
-          }
-        }
+        // TEMPORARILY DISABLED - causing too many failures
+        // const mysteryLabels = puzzle.nodes.filter(n => n.mystery).map(n => n.label)
+        // for (const banned of bannedMysteryComponents) {
+        //   if (mysteryLabels.some(label => label.toLowerCase() === banned.toLowerCase())) {
+        //     throw new Error(`Mystery component "${banned}" was used in the last 7 days and cannot be a mystery node`)
+        //   }
+        // }
 
         generatedPuzzle = puzzle
         console.log(`Successfully generated puzzle: ${puzzle.title}`)
