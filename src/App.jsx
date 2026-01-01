@@ -1,6 +1,7 @@
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Analytics } from '@vercel/analytics/react'
+import posthog from 'posthog-js'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import Toast from './components/Toast'
@@ -33,6 +34,20 @@ const getYesterdayDateString = () => {
 function App() {
   const intervalRef = useRef(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
+    const posthogHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
+
+    if (posthogKey && posthogKey !== 'your_posthog_project_api_key') {
+      posthog.init(posthogKey, {
+        api_host: posthogHost || 'https://us.i.posthog.com',
+        person_profiles: 'identified_only',
+        capture_pageview: true,
+        capture_pageleave: true,
+      })
+    }
+  }, [])
   const [dailyGameTitle, setDailyGameTitle] = useState('')
   const [availableComponents, setAvailableComponents] = useState([])
   const [nodes, setNodes] = useState([])
@@ -518,6 +533,22 @@ function App() {
       return updated
     })
 
+    // Track component difficulty (which components were guessed incorrectly)
+    if (!currentDate) {
+      const incorrectComponents = guess.filter(g => g.status === 'incorrect').map(g => g.label)
+      const wrongPositionComponents = guess.filter(g => g.status === 'wrong-position').map(g => g.label)
+
+      if (incorrectComponents.length > 0 || wrongPositionComponents.length > 0) {
+        posthog.capture('guess_submitted', {
+          attempt_number: guesses.length + 1,
+          puzzle_date: getLocalDateString(),
+          incorrect_components: incorrectComponents,
+          wrong_position_components: wrongPositionComponents,
+          correct_count: guess.filter(g => g.status === 'correct').length,
+        })
+      }
+    }
+
     // Update nodes with status for visual feedback
     setNodes(prevNodes =>
       prevNodes.map(node => {
@@ -583,6 +614,16 @@ function App() {
           return prev
         })
 
+        // Track puzzle completion in PostHog
+        const attemptCount = guesses.length + 1
+        posthog.capture('puzzle_completed', {
+          result: 'won',
+          attempts: attemptCount,
+          puzzle_date: today,
+          puzzle_title: dailyGameTitle,
+          mystery_count: mysteryNodeIds.length,
+        })
+
         setShowStatsModal(true)
       } else {
         // Past puzzle completed - add to completedDays but don't update stats
@@ -622,6 +663,19 @@ function App() {
       // Only update stats if this is today's puzzle
       if (!currentDate) {
         const today = getLocalDateString()
+
+        // Calculate which components were missed
+        const missedComponents = guess.filter(g => g.status !== 'correct').map(g => g.label)
+
+        // Track puzzle failure in PostHog
+        posthog.capture('puzzle_completed', {
+          result: 'lost',
+          attempts: 6,
+          puzzle_date: today,
+          puzzle_title: dailyGameTitle,
+          mystery_count: mysteryNodeIds.length,
+          missed_components: missedComponents,
+        })
 
         // Update stats for failure: break streak, don't count guesses
         setStats(prev => {
@@ -959,6 +1013,13 @@ https://sysdle.com`
 
     navigator.clipboard.writeText(shareText)
     setToast('Share message copied to clipboard!')
+
+    // Track share button click
+    posthog.capture('results_shared', {
+      puzzle_date: getLocalDateString(),
+      attempts: guesses.length,
+      current_streak: stats.currentStreak,
+    })
   }
 
   if (loading) {
