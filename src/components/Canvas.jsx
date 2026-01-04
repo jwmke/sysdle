@@ -11,16 +11,6 @@ const nodeTypes = {
 }
 
 export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId, componentInfoMap, currentDate, onReturnToToday, onOtherPastDays }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024)
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
   // Memoize nodes to prevent unnecessary recalculations
   const reactFlowNodes = useMemo(() => nodes.map(node => {
     const componentInfo = getComponentInfo(node.label, componentInfoMap || {})
@@ -120,7 +110,7 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
         nodesDraggable={false}
-        panOnDrag={isMobile}
+        panOnDrag={true}
         zoomOnScroll={false}
         fitView
         fitViewOptions={{ padding: { top: 0.4, right: 0.1, bottom: 0.2, left: 0.1 } }}

@@ -30,9 +30,7 @@ export default function DraggableComponent({ component, status, onClick, isSelec
   const componentInfo = getComponentInfo(component, componentInfoMap || {})
   const shape = componentInfo?.shape || 'rectangle'
 
-  const handleClick = () => {
-    // Delay-based activation ensures onClick only fires for quick clicks
-    // Long holds trigger drag instead
+  const handleClick = (e) => {
     if (onClick) {
       onClick(component)
     }
@@ -47,22 +45,21 @@ export default function DraggableComponent({ component, status, onClick, isSelec
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       className={`cursor-pointer lg:cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-50' : ''
       } ${isSelected ? 'ring-4 ring-blue-400 rounded' : ''}`}
     >
-      <NodeShape
-        shape={shape}
-        bgColor={getBackgroundColor()}
-        textColor={getTextColor()}
-        borderStyle={getBorderStyle()}
-      >
-        {component}
-      </NodeShape>
+      <div {...listeners} {...attributes} onClick={handleClick}>
+        <NodeShape
+          shape={shape}
+          bgColor={getBackgroundColor()}
+          textColor={getTextColor()}
+          borderStyle={getBorderStyle()}
+        >
+          {component}
+        </NodeShape>
+      </div>
     </div>
   )
 }

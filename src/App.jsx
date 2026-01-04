@@ -63,14 +63,13 @@ function App() {
   const [componentInfoMap, setComponentInfoMap] = useState({})
   const [mobileTooltipNode, setMobileTooltipNode] = useState(null)
 
-  // Configure DnD sensors with delay activation
-  // This allows quick clicks (< 150ms) to trigger onClick
-  // while holding longer triggers drag
+  // Configure DnD sensors with distance activation
+  // This allows quick clicks (no movement) to trigger onClick
+  // while dragging (> 8px movement) triggers drag
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 150,
-        tolerance: 5,
+        distance: 8,
       },
     })
   )
@@ -359,13 +358,14 @@ function App() {
     if (!over) return
 
     const activeId = active.id
-    const targetNodeId = over.id
+    const targetId = over.id
 
-    // Check if dragging from a node (node-to-node drag)
+    // Check if dragging from a node (node-to-node or node-to-sidebar drag)
     const isNodeDrag = activeId.startsWith('node-')
 
     if (isNodeDrag) {
       const sourceNodeId = activeId.replace('node-', '')
+      const targetNodeId = targetId
 
       // Don't allow dragging to the same node
       if (sourceNodeId === targetNodeId) return
@@ -400,8 +400,9 @@ function App() {
         })
       })
     } else {
-      // Dragging from sidebar
+      // Dragging from sidebar to node
       const component = activeId
+      const targetNodeId = targetId
 
       setNodes(prevNodes =>
         prevNodes.map(node =>
@@ -414,12 +415,31 @@ function App() {
   }, [])
 
   const handleComponentClick = useCallback((component) => {
+    // If a node is selected, replace it with the component
+    if (selectedNodeId) {
+      const targetNode = nodes.find(n => n.id === selectedNodeId)
+
+      // Allow placing on mystery or wasMystery nodes
+      if (targetNode && (targetNode.mystery || targetNode.wasMystery)) {
+        setNodes(prevNodes =>
+          prevNodes.map(node =>
+            node.id === selectedNodeId
+              ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+              : node
+          )
+        )
+      }
+
+      setSelectedNodeId(null)
+      return
+    }
+
+    // Otherwise, select the component
     setSelectedComponent(component)
-    setSelectedNodeId(null) // Clear node selection when selecting a component
 
     // Set mobile tooltip for the clicked component
     setMobileTooltipNode({ label: component })
-  }, [])
+  }, [selectedNodeId, nodes])
 
   const handleNodeClick = useCallback((nodeId, nodeLabel, isMysteryNode) => {
     // Update mobile tooltip for any non-empty node
@@ -487,11 +507,9 @@ function App() {
       return
     }
 
-    // Otherwise, select this node if it's filled
-    if (nodeLabel !== '???') {
-      setSelectedNodeId(nodeId)
-      setSelectedComponent(null) // Clear component selection when selecting a node
-    }
+    // Otherwise, select this node
+    setSelectedNodeId(nodeId)
+    setSelectedComponent(null) // Clear component selection when selecting a node
   }, [selectedComponent, selectedNodeId, nodes])
 
   const handleSubmit = () => {

@@ -9,7 +9,7 @@ export default function MysteryNode({ id, data }) {
   const isCorrect = data.isCorrect
   const guessStatus = data.guessStatus
   const isMysteryNode = data.isMysteryNode // Whether this is a mystery/wasMystery node
-  const isDraggable = !isEmpty && isMysteryNode // Only mystery nodes are draggable
+  const isDraggable = !isEmpty && isMysteryNode // Only filled mystery nodes are draggable
   const onNodeClick = data.onNodeClick
   const isSelected = data.isSelected
 
@@ -97,7 +97,7 @@ export default function MysteryNode({ id, data }) {
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         onMouseEnter={handleMouseEnter}
-        className={`${isOver ? 'opacity-70' : ''} ${isDraggable ? 'cursor-pointer lg:cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isDragging ? 'opacity-50' : ''} ${isSelected ? 'ring-4 ring-blue-400' : ''}`}
+        className={`nopan ${isOver ? 'opacity-70' : ''} ${isDraggable ? 'cursor-pointer lg:cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isDragging ? 'opacity-50' : ''} ${isSelected ? 'ring-4 ring-blue-400' : ''}`}
       >
         <NodeShape
           shape={nodeShape}
