@@ -1,5 +1,6 @@
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
 import posthog from 'posthog-js'
 import Sidebar from './components/Sidebar'
@@ -33,8 +34,11 @@ const getYesterdayDateString = () => {
 }
 
 function App() {
+  const { date } = useParams()
+  const navigate = useNavigate()
   const intervalRef = useRef(null)
   const [loading, setLoading] = useState(true)
+  const isAdminMode = import.meta.env.VITE_ADMIN_MODE === 'true'
 
   useEffect(() => {
     const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
@@ -133,8 +137,18 @@ function App() {
     }
   })
 
-  // Fetch daily game on mount
+  // Fetch daily game on mount (or past game if date param exists)
   useEffect(() => {
+    // If there's a date param in the URL, load that past puzzle instead
+    if (date) {
+      loadPastPuzzleInternal(date)
+      return
+    }
+
+    // Clear past puzzle state when returning to today
+    setCurrentDate(null)
+    setMobileTooltipNode(null)
+
     const fetchDailyGame = async () => {
       const today = getLocalDateString()
       const cacheKey = `daily-game-${today}`
@@ -181,10 +195,12 @@ function App() {
         } else {
           // New game, use fresh nodes and clear old progress
           setNodes(gameData.nodes)
-          localStorage.setItem('currentGameDate', today)
-          localStorage.removeItem('guesses')
-          localStorage.removeItem('gameWon')
-          localStorage.removeItem('componentStatuses')
+          if (!isAdminMode) {
+            localStorage.setItem('currentGameDate', today)
+            localStorage.removeItem('guesses')
+            localStorage.removeItem('gameWon')
+            localStorage.removeItem('componentStatuses')
+          }
         }
 
         setLoading(false)
@@ -199,8 +215,10 @@ function App() {
         const gameData = await response.json()
 
         // Cache the game data
-        localStorage.setItem(cacheKey, JSON.stringify(gameData))
-        localStorage.setItem('currentGameDate', today)
+        if (!isAdminMode) {
+          localStorage.setItem(cacheKey, JSON.stringify(gameData))
+          localStorage.setItem('currentGameDate', today)
+        }
 
         // Extract mystery node IDs from the game data
         const mysteryIds = gameData.nodes
@@ -230,9 +248,11 @@ function App() {
         })
 
         // Clear old progress for new game
-        localStorage.removeItem('guesses')
-        localStorage.removeItem('gameWon')
-        localStorage.removeItem('componentStatuses')
+        if (!isAdminMode) {
+          localStorage.removeItem('guesses')
+          localStorage.removeItem('gameWon')
+          localStorage.removeItem('componentStatuses')
+        }
 
         setLoading(false)
       } catch (error) {
@@ -242,7 +262,8 @@ function App() {
     }
 
     fetchDailyGame()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date])
 
   // Fetch component info on mount
   useEffect(() => {
@@ -266,31 +287,31 @@ function App() {
 
   useEffect(() => {
     // Only save today's puzzle state, not past puzzles
-    if (!currentDate) {
+    if (!currentDate && !isAdminMode) {
       localStorage.setItem('guesses', JSON.stringify(guesses))
     }
-  }, [guesses, currentDate])
+  }, [guesses, currentDate, isAdminMode])
 
   useEffect(() => {
     // Only save nodes if they exist (not empty array on initial load) and viewing today
-    if (nodes.length > 0 && !currentDate) {
+    if (nodes.length > 0 && !currentDate && !isAdminMode) {
       localStorage.setItem('nodes', JSON.stringify(nodes))
     }
-  }, [nodes, currentDate])
+  }, [nodes, currentDate, isAdminMode])
 
   useEffect(() => {
     // Only save today's puzzle state, not past puzzles
-    if (!currentDate) {
+    if (!currentDate && !isAdminMode) {
       localStorage.setItem('gameWon', JSON.stringify(gameWon))
     }
-  }, [gameWon, currentDate])
+  }, [gameWon, currentDate, isAdminMode])
 
   useEffect(() => {
     // Only save today's puzzle state, not past puzzles
-    if (!currentDate) {
+    if (!currentDate && !isAdminMode) {
       localStorage.setItem('componentStatuses', JSON.stringify(componentStatuses))
     }
-  }, [componentStatuses, currentDate])
+  }, [componentStatuses, currentDate, isAdminMode])
 
   useEffect(() => {
     localStorage.setItem('stats', JSON.stringify(stats))
@@ -719,11 +740,13 @@ function App() {
     const today = getLocalDateString()
 
     // Clear localStorage
-    localStorage.removeItem('guesses')
-    localStorage.removeItem('gameWon')
-    localStorage.removeItem('componentStatuses')
-    localStorage.removeItem('nodes')
-    localStorage.setItem('currentGameDate', today)
+    if (!isAdminMode) {
+      localStorage.removeItem('guesses')
+      localStorage.removeItem('gameWon')
+      localStorage.removeItem('componentStatuses')
+      localStorage.removeItem('nodes')
+      localStorage.setItem('currentGameDate', today)
+    }
 
     // Reset state
     setGuesses([])
@@ -768,7 +791,9 @@ function App() {
         const response = await fetch(`/api/daily-game?date=${today}`)
         const gameData = await response.json()
 
-        localStorage.setItem(cacheKey, JSON.stringify(gameData))
+        if (!isAdminMode) {
+          localStorage.setItem(cacheKey, JSON.stringify(gameData))
+        }
         setNodes(gameData.nodes)
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
@@ -803,11 +828,11 @@ function App() {
     }
   }
 
-  const loadPastPuzzle = async (dateStr) => {
-    // If selecting today's date, just return to today normally
+  const loadPastPuzzleInternal = async (dateStr) => {
+    // If selecting today's date, just navigate to home
     const today = getLocalDateString()
     if (dateStr === today) {
-      returnToToday()
+      navigate('/')
       return
     }
 
@@ -831,7 +856,9 @@ function App() {
         if (!response.ok) throw new Error('Failed to fetch past game')
         gameData = await response.json()
         // Cache it
-        localStorage.setItem(cacheKey, JSON.stringify(gameData))
+        if (!isAdminMode) {
+          localStorage.setItem(cacheKey, JSON.stringify(gameData))
+        }
       }
 
       // Extract mystery node IDs
@@ -888,84 +915,12 @@ function App() {
     }
   }
 
-  const returnToToday = async () => {
-    setLoading(true)
-    setCurrentDate(null)
-    setMobileTooltipNode(null)
+  const loadPastPuzzle = (dateStr) => {
+    navigate(`/past/${dateStr}`)
+  }
 
-    const today = getLocalDateString()
-    const cacheKey = `daily-game-${today}`
-
-    // Make sure currentGameDate is set to today
-    localStorage.setItem('currentGameDate', today)
-
-    try {
-      // Check localStorage first
-      const cached = localStorage.getItem(cacheKey)
-      let gameData
-
-      if (cached) {
-        gameData = JSON.parse(cached)
-      } else {
-        // Fetch from API
-        const response = await fetch(`/api/daily-game?date=${today}`)
-        if (!response.ok) throw new Error('Failed to fetch daily game')
-        gameData = await response.json()
-        localStorage.setItem(cacheKey, JSON.stringify(gameData))
-      }
-
-      // Extract mystery node IDs
-      const mysteryIds = gameData.nodes
-        .filter(node => node.mystery)
-        .map(node => node.id)
-      setMysteryNodeIds(mysteryIds)
-
-      setDailyGameTitle(gameData.title)
-      setAvailableComponents(gameData.components)
-
-      // Merge custom component metadata
-      setComponentInfoMap(prev => {
-        const merged = { ...prev }
-        gameData.nodes.forEach(node => {
-          if (node.description && node.shape) {
-            merged[node.label] = {
-              shape: node.shape,
-              category: 'custom',
-              description: node.description,
-              link: null,
-              aliases: []
-            }
-          }
-        })
-        return merged
-      })
-
-      // Check if user has saved progress for today
-      const savedNodes = localStorage.getItem('nodes')
-      const savedDate = localStorage.getItem('currentGameDate')
-      const savedGuesses = localStorage.getItem('guesses')
-      const savedGameWon = localStorage.getItem('gameWon')
-      const savedStatuses = localStorage.getItem('componentStatuses')
-
-      if (savedNodes && savedDate === today) {
-        // Load saved progress from today
-        setNodes(JSON.parse(savedNodes))
-        setGuesses(savedGuesses ? JSON.parse(savedGuesses) : [])
-        setGameWon(savedGameWon ? JSON.parse(savedGameWon) : false)
-        setComponentStatuses(savedStatuses ? JSON.parse(savedStatuses) : {})
-      } else {
-        // New game
-        setNodes(gameData.nodes)
-        setGuesses([])
-        setGameWon(false)
-        setComponentStatuses({})
-      }
-
-      setLoading(false)
-    } catch (error) {
-      setToast('Failed to load today\'s puzzle. Please refresh.')
-      setLoading(false)
-    }
+  const returnToToday = () => {
+    navigate('/')
   }
 
   const getActiveLabel = () => {
