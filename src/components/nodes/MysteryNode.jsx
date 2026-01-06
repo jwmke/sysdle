@@ -12,6 +12,7 @@ export default function MysteryNode({ id, data }) {
   const isDraggable = !isEmpty && isMysteryNode // Only filled mystery nodes are draggable
   const onNodeClick = data.onNodeClick
   const isSelected = data.isSelected
+  const justRevealed = data.justRevealed
 
   const [hideTooltip, setHideTooltip] = useState(false)
 
@@ -98,6 +99,9 @@ export default function MysteryNode({ id, data }) {
         onMouseDown={handleMouseDown}
         onMouseEnter={handleMouseEnter}
         className={`nopan ${isOver ? 'opacity-70' : ''} ${isDraggable ? 'cursor-pointer lg:cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isDragging ? 'opacity-50' : ''} ${isSelected ? 'ring-4 ring-blue-400' : ''}`}
+        style={justRevealed ? {
+          animation: 'revealNode 0.5s ease-out',
+        } : {}}
       >
         <NodeShape
           shape={nodeShape}
@@ -109,6 +113,21 @@ export default function MysteryNode({ id, data }) {
         </NodeShape>
       </div>
       <Handle type="source" position={Position.Bottom} />
+      <style>{`
+        @keyframes revealNode {
+          0% {
+            transform: scale(0.8);
+            opacity: 0.5;
+          }
+          50% {
+            transform: scale(1.05);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </>
   )
 

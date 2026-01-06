@@ -11,6 +11,7 @@ import SideDrawer from './components/SideDrawer'
 import PastDaysModal from './components/PastDaysModal'
 import AboutModal from './components/AboutModal'
 import PrivacyPolicyModal from './components/PrivacyPolicyModal'
+import WelcomeModal from './components/WelcomeModal'
 import LoadingSpinner from './components/LoadingSpinner'
 import { fetchComponentInfo, getComponentInfo } from './lib/supabase'
 
@@ -113,6 +114,11 @@ function App() {
   const [showPastDaysModal, setShowPastDaysModal] = useState(false)
   const [showAboutModal, setShowAboutModal] = useState(false)
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => {
+    // Show welcome modal only if user hasn't seen it before
+    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome')
+    return !hasSeenWelcome
+  })
   const [currentDate, setCurrentDate] = useState(null) // null means today, otherwise YYYY-MM-DD
   const [completedDays, setCompletedDays] = useState(() => {
     const saved = localStorage.getItem('completedDays')
@@ -1104,6 +1110,7 @@ https://sysdle.com`
           currentDate={currentDate}
           onReturnToToday={returnToToday}
           onOtherPastDays={() => setShowPastDaysModal(true)}
+          onHelpClick={() => setShowWelcomeModal(true)}
         />
       </div>
       <DragOverlay>
@@ -1157,6 +1164,13 @@ https://sysdle.com`
       <PrivacyPolicyModal
         isOpen={showPrivacyModal}
         onClose={() => setShowPrivacyModal(false)}
+      />
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => {
+          setShowWelcomeModal(false)
+          localStorage.setItem('hasSeenWelcome', 'true')
+        }}
       />
       <Analytics />
     </DndContext>

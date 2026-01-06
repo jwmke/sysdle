@@ -11,7 +11,7 @@ export default function Sidebar({ getComponentStatus, onLogoClick, components = 
   const showDescription = hoveredComponentInfo && hoveredComponentInfo.description
 
   return (
-    <aside className="w-full h-auto lg:w-80 lg:h-full bg-stone-900 rounded-t-2xl lg:rounded-t-none lg:rounded-r-3xl p-4 lg:p-6 overflow-y-auto flex flex-col">
+    <aside className="w-full h-auto lg:w-80 lg:h-full bg-stone-900 rounded-t-2xl lg:rounded-t-none lg:rounded-r-3xl p-4 pb-8 lg:p-6 overflow-y-auto flex flex-col">
       {/* Logo - only visible on lg screens and larger */}
       <div className="hidden lg:flex items-center gap-4 mb-8 cursor-pointer" onClick={onLogoClick}>
         <img src={logo} alt="Sysdle" className="h-12 brightness-0 invert" />

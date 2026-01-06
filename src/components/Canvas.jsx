@@ -10,7 +10,7 @@ const nodeTypes = {
   mystery: MysteryNode,
 }
 
-export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId, componentInfoMap, currentDate, onReturnToToday, onOtherPastDays }) {
+export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onLogoClick, dailyGameTitle, onNodeClick, selectedNodeId, componentInfoMap, currentDate, onReturnToToday, onOtherPastDays, onHelpClick }) {
   // Memoize nodes to prevent unnecessary recalculations
   const reactFlowNodes = useMemo(() => nodes.map(node => {
     const componentInfo = getComponentInfo(node.label, componentInfoMap || {})
@@ -114,7 +114,7 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         zoomOnScroll={false}
         fitView
         fitViewOptions={{ padding: { top: 0.4, right: 0.1, bottom: 0.2, left: 0.1 } }}
-        translateExtent={[[-150, -100], [1000, 800]]}
+        // translateExtent={[[-150, -100], [1000, 800]]}
         minZoom={0.5}
         maxZoom={2}
       >
@@ -122,6 +122,15 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
       </ReactFlow>
       <Logo onClick={onLogoClick} />
       <Scoreboard onSubmit={onSubmit} guesses={guesses} gameWon={gameWon} onShare={onShare} />
+
+      {/* Help Button */}
+      <button
+        onClick={onHelpClick}
+        className="absolute bottom-4 right-4 z-10 w-5 h-5 lg:w-10 lg:h-10 border-2 border-white text-white rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+        aria-label="Help"
+      >
+        <span className="text-base lg:text-xl font-bold">?</span>
+      </button>
     </main>
   )
 }
