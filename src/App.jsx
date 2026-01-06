@@ -56,6 +56,7 @@ function App() {
   const [dailyGameTitle, setDailyGameTitle] = useState('')
   const [availableComponents, setAvailableComponents] = useState([])
   const [nodes, setNodes] = useState([])
+  const [originalNodes, setOriginalNodes] = useState([]) // Store original nodes with correct answers
   const [mysteryNodeIds, setMysteryNodeIds] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [selectedComponent, setSelectedComponent] = useState(null)
@@ -165,6 +166,7 @@ function App() {
 
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
+        setOriginalNodes(gameData.nodes) // Store original nodes with correct answers
 
         // Merge custom component metadata from nodes into componentInfoMap
         setComponentInfoMap(prev => {
@@ -185,12 +187,20 @@ function App() {
 
         // Check if user has saved progress for today
         const savedNodes = localStorage.getItem('nodes')
+        const savedOriginalNodes = localStorage.getItem('originalNodes')
         const savedDate = localStorage.getItem('currentGameDate')
 
         if (savedNodes && savedDate === today) {
           // Load saved progress from today
           const parsedNodes = JSON.parse(savedNodes)
           setNodes(parsedNodes)
+
+          // Load original nodes if available, otherwise use game data
+          if (savedOriginalNodes) {
+            setOriginalNodes(JSON.parse(savedOriginalNodes))
+          } else {
+            setOriginalNodes(gameData.nodes)
+          }
         } else {
           // New game, use fresh nodes and clear old progress
           setNodes(gameData.nodes)
@@ -228,6 +238,7 @@ function App() {
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
         setNodes(gameData.nodes)
+        setOriginalNodes(gameData.nodes) // Store original nodes with correct answers
 
         // Merge custom component metadata from nodes into componentInfoMap
         setComponentInfoMap(prev => {
@@ -297,6 +308,13 @@ function App() {
       localStorage.setItem('nodes', JSON.stringify(nodes))
     }
   }, [nodes, currentDate, isAdminMode])
+
+  useEffect(() => {
+    // Only save original nodes if they exist and viewing today (needed for submit validation)
+    if (originalNodes.length > 0 && !currentDate && !isAdminMode) {
+      localStorage.setItem('originalNodes', JSON.stringify(originalNodes))
+    }
+  }, [originalNodes, currentDate, isAdminMode])
 
   useEffect(() => {
     // Only save today's puzzle state, not past puzzles
@@ -389,12 +407,12 @@ function App() {
           if (node.id === sourceNodeId) {
             // If target is populated, swap; otherwise move (source becomes ???)
             return isTargetPopulated
-              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(targetNode.label) }
               : { ...node, label: '???', mystery: true, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
           }
           if (node.id === targetNodeId) {
             // Target always gets source's label
-            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(sourceNode.label) }
           }
           return node
         })
@@ -407,12 +425,12 @@ function App() {
       setNodes(prevNodes =>
         prevNodes.map(node =>
           node.id === targetNodeId && (node.mystery || node.wasMystery)
-            ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+            ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(component) }
             : node
         )
       )
     }
-  }, [])
+  }, [componentStatuses])
 
   const handleComponentClick = useCallback((component) => {
     // If a node is selected, replace it with the component
@@ -424,7 +442,7 @@ function App() {
         setNodes(prevNodes =>
           prevNodes.map(node =>
             node.id === selectedNodeId
-              ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+              ? { ...node, label: component, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(component) }
               : node
           )
         )
@@ -439,7 +457,7 @@ function App() {
 
     // Set mobile tooltip for the clicked component
     setMobileTooltipNode({ label: component })
-  }, [selectedNodeId, nodes])
+  }, [selectedNodeId, nodes, componentStatuses])
 
   const handleNodeClick = useCallback((nodeId, nodeLabel, isMysteryNode) => {
     // Update mobile tooltip for any non-empty node
@@ -458,7 +476,7 @@ function App() {
       setNodes(prevNodes =>
         prevNodes.map(node =>
           node.id === nodeId && (node.mystery || node.wasMystery)
-            ? { ...node, label: selectedComponent, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+            ? { ...node, label: selectedComponent, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(selectedComponent) }
             : node
         )
       )
@@ -476,6 +494,15 @@ function App() {
         return
       }
 
+      const sourceNode = nodes.find(n => n.id === sourceNodeId)
+      const targetNode = nodes.find(n => n.id === nodeId)
+
+      // Special case: if source is mystery and target is also mystery, don't allow
+      if (sourceNode?.mystery === true && targetNode?.mystery === true) {
+        setSelectedNodeId(null)
+        return
+      }
+
       setNodes(prevNodes => {
         const sourceNode = prevNodes.find(n => n.id === sourceNodeId)
         const targetNode = prevNodes.find(n => n.id === nodeId)
@@ -485,19 +512,40 @@ function App() {
         // Only allow swapping on mystery or wasMystery nodes
         if (!targetNode.mystery && !targetNode.wasMystery) return prevNodes
 
-        // Target is only considered populated if it's not a mystery node and has a label
+        // Special handling when source is a mystery node
+        if (sourceNode.mystery === true) {
+          const isTargetPopulated = !targetNode.mystery && targetNode.label !== '???'
+
+          return prevNodes.map(node => {
+            if (node.id === sourceNodeId) {
+              // Source (mystery) gets target's component if populated
+              return isTargetPopulated
+                ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(targetNode.label) }
+                : node // Don't change if target is empty
+            }
+            if (node.id === nodeId) {
+              // Target becomes empty (don't reveal mystery answer)
+              return isTargetPopulated
+                ? { ...node, label: '???', mystery: true, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+                : node
+            }
+            return node
+          })
+        }
+
+        // Normal swap logic when source is NOT a mystery
         const isTargetPopulated = !targetNode.mystery && targetNode.label !== '???'
 
         return prevNodes.map(node => {
           if (node.id === sourceNodeId) {
             // If target is populated, swap; otherwise move (source becomes ???)
             return isTargetPopulated
-              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+              ? { ...node, label: targetNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(targetNode.label) }
               : { ...node, label: '???', mystery: true, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
           }
           if (node.id === nodeId) {
             // Target always gets source's label
-            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: undefined }
+            return { ...node, label: sourceNode.label, mystery: false, wasMystery: true, isCorrect: undefined, guessStatus: getGuessStatus(sourceNode.label) }
           }
           return node
         })
@@ -510,7 +558,7 @@ function App() {
     // Otherwise, select this node
     setSelectedNodeId(nodeId)
     setSelectedComponent(null) // Clear component selection when selecting a node
-  }, [selectedComponent, selectedNodeId, nodes])
+  }, [selectedComponent, selectedNodeId, nodes, componentStatuses])
 
   const handleSubmit = () => {
     // If game is already won, do nothing
@@ -527,12 +575,9 @@ function App() {
       return
     }
 
-    // Get the correct answers for mystery nodes from the initial game data
-    const gameDate = currentDate || getLocalDateString()
+    // Get the correct answers for mystery nodes from the original game data
     const correctAnswers = mysteryNodeIds.map(id => {
-      const savedGameData = localStorage.getItem(`daily-game-${gameDate}`)
-      const gameData = JSON.parse(savedGameData)
-      const correctNode = gameData.nodes.find(n => n.id === id)
+      const correctNode = originalNodes.find(n => n.id === id)
       return correctNode.label
     })
 
@@ -780,6 +825,7 @@ function App() {
         const gameData = JSON.parse(cached)
         // Load the new game data
         setNodes(gameData.nodes)
+        setOriginalNodes(gameData.nodes)
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
 
@@ -813,6 +859,7 @@ function App() {
           localStorage.setItem(cacheKey, JSON.stringify(gameData))
         }
         setNodes(gameData.nodes)
+        setOriginalNodes(gameData.nodes)
         setDailyGameTitle(gameData.title)
         setAvailableComponents(gameData.components)
 
@@ -887,6 +934,7 @@ function App() {
 
       setDailyGameTitle(gameData.title)
       setAvailableComponents(gameData.components)
+      setOriginalNodes(gameData.nodes) // Store original nodes with correct answers
 
       // Merge custom component metadata
       setComponentInfoMap(prev => {
@@ -958,6 +1006,12 @@ function App() {
   // Get component status from tracked statuses
   const getComponentStatus = (componentLabel) => {
     return componentStatuses[componentLabel] || null
+  }
+
+  // Get guess status for a component to preserve colors when moving nodes
+  const getGuessStatus = (componentLabel) => {
+    if (!componentLabel || componentLabel === '???') return undefined
+    return componentStatuses[componentLabel] || undefined
   }
 
   const handleShare = () => {

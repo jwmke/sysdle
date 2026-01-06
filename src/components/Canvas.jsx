@@ -81,21 +81,21 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
 
   return (
     <main className="flex-1 bg-stone-800 relative">
-      <header className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-1/2 bg-stone-900 border-b rounded-b-2xl px-4 lg:px-6 py-3">
-        <h1 className="text-white text-lg font-medium text-left">{dailyGameTitle}</h1>
+      <header className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-1/2 bg-stone-900 border-b rounded-b-2xl px-2 lg:px-6 py-1.5 lg:py-3">
+        <h1 className="text-white text-xs lg:text-lg font-medium text-left leading-tight">{dailyGameTitle}</h1>
         {currentDate && (
-          <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 mt-2">
-            <span className="text-stone-400 text-xs lg:text-sm">Past Day: {currentDate}</span>
-            <div className="flex gap-2">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 mt-1 lg:mt-2">
+            <span className="text-stone-400 text-[10px] lg:text-sm">Past Day: {currentDate}</span>
+            <div className="flex gap-1 lg:gap-2">
               <button
                 onClick={onReturnToToday}
-                className="flex-1 lg:flex-none bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-2 lg:py-1 rounded font-semibold transition-colors"
+                className="flex-1 lg:flex-none bg-green-600 hover:bg-green-500 text-white text-[10px] lg:text-xs px-2 py-1 lg:px-3 rounded font-semibold transition-colors"
               >
                 Return to Today
               </button>
               <button
                 onClick={onOtherPastDays}
-                className="flex-1 lg:flex-none bg-stone-700 hover:bg-stone-600 text-white text-xs px-3 py-2 lg:py-1 rounded font-semibold transition-colors"
+                className="flex-1 lg:flex-none bg-stone-700 hover:bg-stone-600 text-white text-[10px] lg:text-xs px-2 py-1 lg:px-3 rounded font-semibold transition-colors"
               >
                 Other Past Days
               </button>
@@ -114,6 +114,9 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         zoomOnScroll={false}
         fitView
         fitViewOptions={{ padding: { top: 0.4, right: 0.1, bottom: 0.2, left: 0.1 } }}
+        translateExtent={[[-150, -100], [1000, 800]]}
+        minZoom={0.5}
+        maxZoom={2}
       >
         <Background />
       </ReactFlow>
