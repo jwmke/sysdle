@@ -111,7 +111,7 @@ export default function Canvas({ nodes, onSubmit, guesses, gameWon, onShare, onL
         nodesConnectable={false}
         nodesDraggable={false}
         panOnDrag={true}
-        zoomOnScroll={false}
+        zoomOnScroll={true}
         fitView
         fitViewOptions={{ padding: { top: 0.4, right: 0.1, bottom: 0.2, left: 0.1 } }}
         // translateExtent={[[-150, -100], [1000, 800]]}

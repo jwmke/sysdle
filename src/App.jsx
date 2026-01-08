@@ -178,9 +178,9 @@ function App() {
         setComponentInfoMap(prev => {
           const merged = { ...prev }
           gameData.nodes.forEach(node => {
-            if (node.description && node.shape) {
+            if (node.description || node.shape) {
               merged[node.label] = {
-                shape: node.shape,
+                shape: node.shape || 'rectangle',
                 category: 'custom',
                 description: node.description,
                 link: null,
@@ -250,9 +250,9 @@ function App() {
         setComponentInfoMap(prev => {
           const merged = { ...prev }
           gameData.nodes.forEach(node => {
-            if (node.description && node.shape) {
+            if (node.description || node.shape) {
               merged[node.label] = {
-                shape: node.shape,
+                shape: node.shape || 'rectangle',
                 category: 'custom',
                 description: node.description,
                 link: null,
@@ -844,9 +844,9 @@ function App() {
         setComponentInfoMap(prev => {
           const merged = { ...prev }
           gameData.nodes.forEach(node => {
-            if (node.description && node.shape) {
+            if (node.description || node.shape) {
               merged[node.label] = {
-                shape: node.shape,
+                shape: node.shape || 'rectangle',
                 category: 'custom',
                 description: node.description,
                 link: null,
@@ -878,9 +878,9 @@ function App() {
         setComponentInfoMap(prev => {
           const merged = { ...prev }
           gameData.nodes.forEach(node => {
-            if (node.description && node.shape) {
+            if (node.description || node.shape) {
               merged[node.label] = {
-                shape: node.shape,
+                shape: node.shape || 'rectangle',
                 category: 'custom',
                 description: node.description,
                 link: null,
