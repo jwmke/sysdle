@@ -13,7 +13,8 @@
       "Bash(curl:*)",
       "Bash(cat:*)",
       "Bash(npm install:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(supabase functions deploy:*)"
     ]
   }
 }
